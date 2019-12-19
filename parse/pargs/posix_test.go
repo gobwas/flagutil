@@ -10,11 +10,11 @@ import (
 
 func TestPosixParse(t *testing.T) {
 	for _, test := range []struct {
-		name       string
-		args       []string
-		exp        [][2]string
-		err        bool
-		isBoolFlag map[string]bool
+		name  string
+		args  []string
+		exp   [][2]string
+		err   bool
+		flags map[string]bool
 	}{
 		{
 			name: "short basic",
@@ -25,11 +25,14 @@ func TestPosixParse(t *testing.T) {
 				"-f=bar",
 				"-g", "baz",
 			},
-			isBoolFlag: map[string]bool{
+			flags: map[string]bool{
 				"a": true,
 				"b": true,
 				"c": true,
 				"d": true,
+				"e": false,
+				"f": false,
+				"g": false,
 			},
 			exp: [][2]string{
 				{"a", "true"},
@@ -50,6 +53,12 @@ func TestPosixParse(t *testing.T) {
 				"--bar=baz",
 				"--opt", "val",
 			},
+			flags: map[string]bool{
+				"a":   true,
+				"foo": true,
+				"bar": false,
+				"opt": false,
+			},
 			exp: [][2]string{
 				{"a", "true"},
 				{"foo", "true"},
@@ -63,7 +72,7 @@ func TestPosixParse(t *testing.T) {
 				"-t", "true",
 				"-f", "false",
 			},
-			isBoolFlag: map[string]bool{
+			flags: map[string]bool{
 				"t": true,
 				"f": true,
 			},
@@ -88,19 +97,18 @@ func TestPosixParse(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			var act [][2]string
+			var fs testutil.StubFlagSet
+			for name, isBool := range test.flags {
+				if isBool {
+					fs.AddBoolFlag(name, false)
+				} else {
+					fs.AddFlag(name, "")
+				}
+			}
 			p := Parser{
 				Args: test.args,
 			}
-			err := p.parse(
-				func(name, value string) error {
-					act = append(act, [2]string{name, value})
-					return nil
-				},
-				func(name string) bool {
-					return test.isBoolFlag[name]
-				},
-			)
+			err := p.Parse(&fs)
 			if !test.err && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -110,10 +118,10 @@ func TestPosixParse(t *testing.T) {
 			if test.err {
 				return
 			}
-			if !cmp.Equal(act, test.exp) {
+			if exp, act := test.exp, fs.Pairs(); !cmp.Equal(act, exp) {
 				t.Errorf(
 					"unexpected set pairs:\n%s",
-					cmp.Diff(test.exp, act),
+					cmp.Diff(exp, act),
 				)
 			}
 		})

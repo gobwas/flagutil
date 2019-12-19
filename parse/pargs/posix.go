@@ -21,24 +21,12 @@ type Parser struct {
 }
 
 func (p *Parser) Parse(fs parse.FlagSet) (err error) {
-	return p.parse(fs.Set,
-		func(name string) bool {
-			return isBoolFlag(fs.Lookup(name))
-		},
-	)
-}
-
-func (p *Parser) parse(
-	set func(name, value string) error,
-	isBoolFlag func(name string) bool,
-) (
-	err error,
-) {
-	p.reset(isBoolFlag)
-
+	p.reset(func(name string) bool {
+		return isBoolFlag(fs.Lookup(name))
+	})
 	for p.next() {
 		p.pairs(func(name, value string) bool {
-			err = set(name, value)
+			err = fs.Set(name, value)
 			return err == nil
 		})
 		if err != nil {

@@ -44,8 +44,8 @@ func (s *StubFlagSet) AddFlag(name, value string) {
 	s.addFlag(name, value, false)
 }
 
-func (s *StubFlagSet) AddBoolFlag(name string) {
-	s.addFlag(name, "", true)
+func (s *StubFlagSet) AddBoolFlag(name string, value bool) {
+	s.addFlag(name, fmt.Sprintf("%t", value), true)
 }
 
 func (s *StubFlagSet) addFlag(name, value string, isBool bool) {
