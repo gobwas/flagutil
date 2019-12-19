@@ -2,22 +2,32 @@ package parse
 
 import "flag"
 
-type FlagSet struct {
+type FlagSet interface {
+	Lookup(name string) *flag.Flag
+	VisitAll(func(*flag.Flag))
+	Set(name, value string) error
+}
+
+type FlagSetOption func(*flagSet)
+
+func WithIgnoreUndefined(v bool) FlagSetOption {
+	return func(fs *flagSet) {
+		fs.ignoreUndefined = v
+	}
+}
+
+func NextLevel(fs FlagSet) {
+	fs.(*flagSet).update()
+}
+
+type flagSet struct {
 	dest            *flag.FlagSet
 	ignoreUndefined bool
 	provided        map[string]bool
 }
 
-type FlagSetOption func(*FlagSet)
-
-func WithIgnoreUndefined(v bool) FlagSetOption {
-	return func(fs *FlagSet) {
-		fs.ignoreUndefined = v
-	}
-}
-
-func NewFlagSet(flags *flag.FlagSet, opts ...FlagSetOption) *FlagSet {
-	fs := &FlagSet{
+func NewFlagSet(flags *flag.FlagSet, opts ...FlagSetOption) FlagSet {
+	fs := &flagSet{
 		dest:     flags,
 		provided: make(map[string]bool),
 	}
@@ -28,7 +38,7 @@ func NewFlagSet(flags *flag.FlagSet, opts ...FlagSetOption) *FlagSet {
 	return fs
 }
 
-func (fs *FlagSet) Set(name, value string) error {
+func (fs *flagSet) Set(name, value string) error {
 	if fs.provided[name] {
 		return nil
 	}
@@ -39,24 +49,19 @@ func (fs *FlagSet) Set(name, value string) error {
 	return fs.dest.Set(name, value)
 }
 
-func (fs *FlagSet) ParseLevel(fn func()) {
-	fn()
-	fs.update()
-}
-
-func (fs *FlagSet) update() {
+func (fs *flagSet) update() {
 	fs.dest.Visit(func(f *flag.Flag) {
 		fs.provided[f.Name] = true
 	})
 }
 
-func (fs *FlagSet) VisitAll(fn func(*flag.Flag)) {
+func (fs *flagSet) VisitAll(fn func(*flag.Flag)) {
 	fs.dest.VisitAll(func(f *flag.Flag) {
 		fn(fs.clone(f))
 	})
 }
 
-func (fs *FlagSet) Lookup(name string) *flag.Flag {
+func (fs *flagSet) Lookup(name string) *flag.Flag {
 	f := fs.dest.Lookup(name)
 	if f != nil {
 		f = fs.clone(f)
@@ -64,11 +69,7 @@ func (fs *FlagSet) Lookup(name string) *flag.Flag {
 	return f
 }
 
-func (fs *FlagSet) Has(name string) bool {
-	return fs.Lookup(name) != nil
-}
-
-func (fs *FlagSet) clone(f *flag.Flag) *flag.Flag {
+func (fs *flagSet) clone(f *flag.Flag) *flag.Flag {
 	cp := *f
 	cp.Value = value{
 		Value: f.Value,
@@ -80,7 +81,7 @@ func (fs *FlagSet) clone(f *flag.Flag) *flag.Flag {
 
 type value struct {
 	flag.Value
-	fs   *FlagSet
+	fs   *flagSet
 	name string
 }
 

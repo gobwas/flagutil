@@ -8,8 +8,10 @@ import (
 	"github.com/gobwas/flagutil/parse"
 )
 
+var SetSeparator = "."
+
 type Parser interface {
-	Parse(*parse.FlagSet) error
+	Parse(parse.FlagSet) error
 }
 
 type ParseOption func(*config)
@@ -40,10 +42,8 @@ func Parse(flags *flag.FlagSet, opts ...ParseOption) (err error) {
 		parse.WithIgnoreUndefined(c.ignoreUndefined),
 	)
 	for _, p := range c.parsers {
-		fs.ParseLevel(func() {
-			err = p.Parse(fs)
-		})
-		if err != nil {
+		parse.NextLevel(fs)
+		if err = p.Parse(fs); err != nil {
 			if err == flag.ErrHelp {
 				printUsage(flags)
 			}

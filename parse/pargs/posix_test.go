@@ -121,7 +121,7 @@ func TestPosixParse(t *testing.T) {
 }
 
 func TestPosix(t *testing.T) {
-	testutil.TestParser(t, func(values testutil.Values, fs *parse.FlagSet) error {
+	testutil.TestParser(t, func(values testutil.Values, fs parse.FlagSet) error {
 		p := Parser{
 			Args: marshal(values),
 		}

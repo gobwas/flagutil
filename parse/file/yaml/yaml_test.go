@@ -12,7 +12,7 @@ import (
 )
 
 func TestYAML(t *testing.T) {
-	testutil.TestParser(t, func(values testutil.Values, fs *parse.FlagSet) error {
+	testutil.TestParser(t, func(values testutil.Values, fs parse.FlagSet) error {
 		p := file.Parser{
 			Source: marshal(values),
 			Syntax: new(Syntax),

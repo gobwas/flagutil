@@ -11,9 +11,85 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+type stubValue struct {
+	s      *StubFlagSet
+	name   string
+	value  string
+	isBool bool
+}
+
+func (v *stubValue) Set(value string) error {
+	v.value = value
+	return v.s.Set(v.name, value)
+}
+func (v *stubValue) String() string {
+	return v.value
+}
+func (v *stubValue) IsBoolFlag() bool {
+	return v.isBool
+}
+
+type StubFlagSet struct {
+	flags map[string]flag.Value
+	pairs [][2]string
+}
+
+func (s *StubFlagSet) init() {
+	if s.flags == nil {
+		s.flags = make(map[string]flag.Value)
+	}
+}
+
+func (s *StubFlagSet) AddFlag(name, value string) {
+	s.addFlag(name, value, false)
+}
+
+func (s *StubFlagSet) AddBoolFlag(name string) {
+	s.addFlag(name, "", true)
+}
+
+func (s *StubFlagSet) addFlag(name, value string, isBool bool) {
+	s.init()
+	s.flags[name] = &stubValue{
+		s:      s,
+		name:   name,
+		value:  value,
+		isBool: isBool,
+	}
+}
+
+func (s *StubFlagSet) Pairs() [][2]string {
+	return s.pairs
+}
+
+func (s *StubFlagSet) Lookup(name string) *flag.Flag {
+	val, has := s.flags[name]
+	if !has {
+		return nil
+	}
+	return &flag.Flag{
+		Name:  name,
+		Value: val,
+	}
+}
+
+func (s *StubFlagSet) VisitAll(fn func(*flag.Flag)) {
+	for name, val := range s.flags {
+		fn(&flag.Flag{
+			Name:  name,
+			Value: val,
+		})
+	}
+}
+
+func (s *StubFlagSet) Set(name, value string) error {
+	s.pairs = append(s.pairs, [2]string{name, value})
+	return nil
+}
+
 type Values map[string]interface{}
 
-func TestParser(t *testing.T, parseFunc func(Values, *parse.FlagSet) error) {
+func TestParser(t *testing.T, parseFunc func(Values, parse.FlagSet) error) {
 	for _, test := range []struct {
 		name  string
 		input Values

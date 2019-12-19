@@ -6,6 +6,8 @@ import (
 	"strconv"
 )
 
+var SetSeparator = "."
+
 type SetupFunc func(name, value string) error
 
 type Visitor interface {

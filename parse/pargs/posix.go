@@ -20,7 +20,7 @@ type Parser struct {
 	isBoolFlag func(string) bool
 }
 
-func (p *Parser) Parse(fs *parse.FlagSet) (err error) {
+func (p *Parser) Parse(fs parse.FlagSet) (err error) {
 	return p.parse(fs.Set,
 		func(name string) bool {
 			return isBoolFlag(fs.Lookup(name))

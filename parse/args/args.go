@@ -11,7 +11,7 @@ type Parser struct {
 	Args []string
 }
 
-func (p *Parser) Parse(fs *parse.FlagSet) error {
+func (p *Parser) Parse(fs parse.FlagSet) error {
 	dup := flag.NewFlagSet("", flag.ContinueOnError)
 	dup.SetOutput(ioutil.Discard)
 	dup.Usage = func() {}

@@ -20,7 +20,7 @@ type Parser struct {
 	Syntax   Syntax
 }
 
-func (p *Parser) Parse(fs *parse.FlagSet) error {
+func (p *Parser) Parse(fs parse.FlagSet) error {
 	bts, err := p.readSource(fs)
 	if err != nil {
 		return err
@@ -32,10 +32,17 @@ func (p *Parser) Parse(fs *parse.FlagSet) error {
 	if err != nil {
 		return err
 	}
-	return parse.Setup(x, fs)
+	return parse.Setup(x, parse.VisitorFunc{
+		SetFunc: func(name, value string) error {
+			return fs.Set(name, value)
+		},
+		HasFunc: func(name string) bool {
+			return fs.Lookup(name) != nil
+		},
+	})
 }
 
-func (p *Parser) readSource(fs *parse.FlagSet) ([]byte, error) {
+func (p *Parser) readSource(fs parse.FlagSet) ([]byte, error) {
 	var path string
 	if f := fs.Lookup(p.PathFlag); f != nil {
 		path = f.Value.String()

@@ -3,7 +3,7 @@
 [![GoDoc][godoc-image]][godoc-url]
 [![Travis][travis-image]][travis-url]
 
-> A library to populate [`flag.FlagSet`][flagset] from various sources.
+> A library to populate [`flag.FlagSet`][flagSet] from various sources.
 
 # Features
 
@@ -104,6 +104,7 @@ Note that it is very easy to implement your own [Parser][parser].
 At the moment these parsers are already implemented:
 - [Flag][flag-syntax] syntax arguments parser
 - [Posix][posix] program arguments syntax parser
+- Environment variables parser
 - File parsers:
   - json
   - yaml
@@ -172,7 +173,7 @@ wouldn't write `flagutil` if I didn't met some design disagreement with it.
 
 [parser]:       https://godoc.org/github.com/gobwas/flagutil#Parser
 [flag]:         https://golang.org/pkg/flag
-[flagset]:      https://golang.org/pkg/flag#FlagSet
+[flagSet]:      https://golang.org/pkg/flag#FlagSet
 [flag-syntax]:  https://golang.org/pkg/flag/#hdr-Command_line_flag_syntax
 [article]:      https://gbws.io/articles/configuration-in-go
 [godoc-image]:  https://godoc.org/github.com/gobwas/flagutil?status.svg
