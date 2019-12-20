@@ -130,6 +130,11 @@ There are three scenarios when the flag was found:
 
 3) In other way, `flag.Value.Set()` will be called once with value as is.
 
+> Note that for any type of values the `flag.Value.String()` method is never
+> used to access the "real" value – only for defaults when printing help
+> message. To provide "real" value implementations must satisfy `flag.Getter`
+> interface.
+
 Suppose you have this json configuration:
 
 ```json

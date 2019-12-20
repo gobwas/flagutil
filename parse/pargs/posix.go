@@ -16,16 +16,18 @@ type Parser struct {
 	mult  bool
 	name  string
 	value string
-
-	isBoolFlag func(string) bool
+	fs    parse.FlagSet
 }
 
 func (p *Parser) Parse(fs parse.FlagSet) (err error) {
-	p.reset(func(name string) bool {
-		return isBoolFlag(fs.Lookup(name))
-	})
+	p.reset(fs)
+
 	for p.next() {
 		p.pairs(func(name, value string) bool {
+			if fs.Lookup(name) == nil && (name == "help" || name == "h") {
+				err = flag.ErrHelp
+				return false
+			}
 			err = fs.Set(name, value)
 			return err == nil
 		})
@@ -33,6 +35,7 @@ func (p *Parser) Parse(fs parse.FlagSet) (err error) {
 			return err
 		}
 	}
+
 	return p.err
 }
 
@@ -49,14 +52,22 @@ func (p *Parser) pairs(fn func(name, value string) bool) {
 	fn(p.name, p.value)
 }
 
-func (p *Parser) reset(isBoolFlag func(name string) bool) {
+func (p *Parser) reset(fs parse.FlagSet) {
 	p.pos = 0
 	p.err = nil
 	p.mult = false
 	p.name = ""
 	p.value = ""
+	p.fs = fs
+}
 
-	p.isBoolFlag = isBoolFlag
+func (p *Parser) isBoolFlag(name string) bool {
+	f := p.fs.Lookup(name)
+	if f == nil && name == "h" {
+		// Special case for help message request.
+		return true
+	}
+	return isBoolFlag(f)
 }
 
 func (p *Parser) next() bool {

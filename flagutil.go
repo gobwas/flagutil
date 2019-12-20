@@ -51,7 +51,9 @@ func Parse(flags *flag.FlagSet, opts ...ParseOption) (err error) {
 			case flag.ContinueOnError:
 				return err
 			case flag.ExitOnError:
-				fmt.Fprintf(flags.Output(), "flagutil: parse error: %v\n", err)
+				if err != flag.ErrHelp {
+					fmt.Fprintf(flags.Output(), "flagutil: parse error: %v\n", err)
+				}
 				os.Exit(2)
 			case flag.PanicOnError:
 				panic(err)
