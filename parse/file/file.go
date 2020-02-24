@@ -67,28 +67,26 @@ func (s FlagLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
 	return os.Open(path)
 }
 
-// PathLookup prepares source search in a given order of paths.
-type PathLookup []string
+// PathLookup prepares source search on a path.
+// If path is not exits it doesn't fail.
+type PathLookup string
 
 // Lookup implements Lookup interface.
-func (ps PathLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
-	for _, p := range ps {
-		info, err := os.Stat(p)
-		if os.IsNotExist(err) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		if info.IsDir() {
-			return nil, fmt.Errorf(
-				"flagutil/file: can't parse %s since its dir",
-				p,
-			)
-		}
-		return os.Open(p)
+func (p PathLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
+	info, err := os.Stat(string(p))
+	if os.IsNotExist(err) {
+		return nil, ErrNoFile
 	}
-	return nil, ErrNoFile
+	if err != nil {
+		return nil, err
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf(
+			"flagutil/file: can't parse %s since its dir",
+			p,
+		)
+	}
+	return os.Open(string(p))
 }
 
 // BytesLookup succeeds source lookup with itself.
