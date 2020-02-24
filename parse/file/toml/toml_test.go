@@ -2,7 +2,6 @@ package toml
 
 import (
 	"bytes"
-	"io"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -14,18 +13,18 @@ import (
 func TestTOML(t *testing.T) {
 	testutil.TestParser(t, func(values testutil.Values, fs parse.FlagSet) error {
 		p := file.Parser{
-			Source: marshal(values),
+			Lookup: file.BytesLookup(marshal(values)),
 			Syntax: new(Syntax),
 		}
 		return p.Parse(fs)
 	})
 }
 
-func marshal(values testutil.Values) io.Reader {
+func marshal(values testutil.Values) []byte {
 	var buf bytes.Buffer
 	err := toml.NewEncoder(&buf).Encode(values)
 	if err != nil {
 		panic(err)
 	}
-	return &buf
+	return buf.Bytes()
 }

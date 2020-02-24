@@ -53,7 +53,7 @@ func main() {
 		)
 	})
 	
-	// This flag is required be the file.Parser below.
+	// This flag will be required by the file.Parser below.
 	flags.String(
 		"config", "/etc/app/config.json", 
 		"path to configuration file",
@@ -69,8 +69,8 @@ func main() {
 		// Then lookup for "config" flag value and try to parse its value as a
 		// json configuration file.
 		flagutil.WithParser(&file.Parser{
-			PathFlag: "config",
-			Syntax:   &json.Syntax{},
+			Lookup: file.FlagLookup("config"),
+			Syntax: &json.Syntax{},
 		}),
 	)
 

@@ -2,10 +2,18 @@ package parse
 
 import "flag"
 
-type FlagSet interface {
+type FlagGetter interface {
 	Lookup(name string) *flag.Flag
 	VisitAll(func(*flag.Flag))
+}
+
+type FlagSetter interface {
 	Set(name, value string) error
+}
+
+type FlagSet interface {
+	FlagGetter
+	FlagSetter
 }
 
 type FlagSetOption func(*flagSet)

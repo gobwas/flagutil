@@ -31,6 +31,7 @@ func (v *stubValue) IsBoolFlag() bool {
 
 type StubFlagSet struct {
 	flags map[string]flag.Value
+	order []string
 	pairs [][2]string
 }
 
@@ -56,6 +57,7 @@ func (s *StubFlagSet) addFlag(name, value string, isBool bool) {
 		value:  value,
 		isBool: isBool,
 	}
+	s.order = append(s.order, name)
 }
 
 func (s *StubFlagSet) Pairs() [][2]string {
@@ -74,10 +76,10 @@ func (s *StubFlagSet) Lookup(name string) *flag.Flag {
 }
 
 func (s *StubFlagSet) VisitAll(fn func(*flag.Flag)) {
-	for name, val := range s.flags {
+	for _, name := range s.order {
 		fn(&flag.Flag{
 			Name:  name,
-			Value: val,
+			Value: s.flags[name],
 		})
 	}
 }
