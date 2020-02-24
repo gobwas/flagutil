@@ -128,7 +128,7 @@ func (p *Parser) Parse(fs parse.FlagSet) error {
 	}
 	x, err := p.Syntax.Unmarshal(bts)
 	if err != nil {
-		return err
+		return fmt.Errorf("flagutil/file: syntax error: %v", err)
 	}
 	return parse.Setup(x, parse.VisitorFunc{
 		SetFunc: func(name, value string) error {

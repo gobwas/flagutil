@@ -56,7 +56,7 @@ func Parse(flags *flag.FlagSet, opts ...ParseOption) (err error) {
 				}
 				os.Exit(2)
 			case flag.PanicOnError:
-				panic(err)
+				panic(fmt.Sprintf("flagutil: parse error: %v", err))
 			}
 		}
 	}
