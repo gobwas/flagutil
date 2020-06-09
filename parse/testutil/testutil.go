@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gobwas/flagutil/parse"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/gobwas/flagutil/parse"
 )
 
 type stubValue struct {

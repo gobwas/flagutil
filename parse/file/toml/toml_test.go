@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+
 	"github.com/gobwas/flagutil/parse"
 	"github.com/gobwas/flagutil/parse/file"
 	"github.com/gobwas/flagutil/parse/testutil"

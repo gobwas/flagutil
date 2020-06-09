@@ -1,6 +1,9 @@
 package parse
 
-import "flag"
+import (
+	"flag"
+	"fmt"
+)
 
 type FlagGetter interface {
 	Lookup(name string) *flag.Flag
@@ -25,13 +28,21 @@ func WithIgnoreUndefined(v bool) FlagSetOption {
 }
 
 func NextLevel(fs FlagSet) {
-	fs.(*flagSet).update()
+	fset := fs.(*flagSet)
+	fset.ignore = nil
+	fset.update()
+}
+
+func Ignore(fs FlagSet, fn func(*flag.Flag) bool) {
+	fset := fs.(*flagSet)
+	fset.ignore = fn
 }
 
 type flagSet struct {
 	dest            *flag.FlagSet
 	ignoreUndefined bool
 	provided        map[string]bool
+	ignore          func(*flag.Flag) bool
 }
 
 func NewFlagSet(flags *flag.FlagSet, opts ...FlagSetOption) FlagSet {
@@ -50,11 +61,23 @@ func (fs *flagSet) Set(name, value string) error {
 	if fs.provided[name] {
 		return nil
 	}
-	defined := fs.dest.Lookup(name) != nil
-	if !defined && name != "help" && name != "h" && fs.ignoreUndefined {
+	f := fs.dest.Lookup(name)
+	if f != nil && fs.ignored(f) {
+		f = nil
+	}
+	defined := f != nil
+	if !defined && fs.ignoreUndefined {
 		return nil
 	}
+	if !defined {
+		return fmt.Errorf("no such flag %q", name)
+	}
 	return fs.dest.Set(name, value)
+}
+
+func (fs *flagSet) ignored(f *flag.Flag) bool {
+	ignore := fs.ignore
+	return ignore != nil && ignore(f)
 }
 
 func (fs *flagSet) update() {
@@ -65,16 +88,18 @@ func (fs *flagSet) update() {
 
 func (fs *flagSet) VisitAll(fn func(*flag.Flag)) {
 	fs.dest.VisitAll(func(f *flag.Flag) {
-		fn(fs.clone(f))
+		if !fs.ignored(f) {
+			fn(fs.clone(f))
+		}
 	})
 }
 
 func (fs *flagSet) Lookup(name string) *flag.Flag {
 	f := fs.dest.Lookup(name)
-	if f != nil {
-		f = fs.clone(f)
+	if f == nil || fs.ignored(f) {
+		return nil
 	}
-	return f
+	return fs.clone(f)
 }
 
 func (fs *flagSet) clone(f *flag.Flag) *flag.Flag {

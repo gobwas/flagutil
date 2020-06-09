@@ -68,10 +68,14 @@ func main() {
 
 		// Then lookup for "config" flag value and try to parse its value as a
 		// json configuration file.
-		flagutil.WithParser(&file.Parser{
-			Lookup: file.FlagLookup("config"),
-			Syntax: &json.Syntax{},
-		}),
+		flagutil.WithParser(
+			&file.Parser{
+				Lookup: file.LookupFlag(flags, "config"),
+				Syntax: new(json.Syntax),
+			},
+			// Don't allow to setup "config" flag from file.
+			flagutil.WithIgnoreByName("config"),
+		),
 	)
 
 	// Work with received values.

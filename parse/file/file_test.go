@@ -3,16 +3,15 @@ package file
 import (
 	"bytes"
 	"crypto/rand"
+	"flag"
 	"io/ioutil"
 	"os"
 	"testing"
-
-	"github.com/gobwas/flagutil/parse/testutil"
 )
 
 var (
 	_ Lookup = MultiLookup{}
-	_ Lookup = FlagLookup("")
+	_ Lookup = &FlagLookup{}
 	_ Lookup = PathLookup("")
 	_ Lookup = BytesLookup{}
 )
@@ -24,7 +23,7 @@ func TestPathLookupDir(t *testing.T) {
 	}
 	defer os.Remove(dir)
 	lookup := PathLookup(dir)
-	if _, err := lookup.Lookup(nil); err == nil {
+	if _, err := lookup.Lookup(); err == nil {
 		t.Fatal("want error; got nil")
 	}
 }
@@ -37,7 +36,7 @@ func TestPathLookup(t *testing.T) {
 	defer os.Remove(file.Name())
 
 	lookup := PathLookup(file.Name())
-	rc, err := lookup.Lookup(nil)
+	rc, err := lookup.Lookup()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -59,12 +58,12 @@ func TestFlagLookup(t *testing.T) {
 	}
 	defer os.Remove(file.Name())
 
-	lookup := FlagLookup("config")
+	fs := flag.NewFlagSet(t.Name(), flag.PanicOnError)
+	fs.String("config", file.Name(), "")
 
-	fs := new(testutil.StubFlagSet)
-	fs.AddFlag("config", file.Name())
+	lookup := LookupFlag(fs, "config")
 
-	rc, err := lookup.Lookup(fs)
+	rc, err := lookup.Lookup()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

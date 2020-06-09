@@ -5,9 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/gobwas/flagutil/parse"
 	"github.com/gobwas/flagutil/parse/testutil"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestEnvParser(t *testing.T) {

@@ -65,8 +65,7 @@ func (p *Parser) Parse(fs parse.FlagSet) (err error) {
 		}
 	}
 	fs.VisitAll(func(f *flag.Flag) {
-		name := p.Prefix + strings.ToUpper(f.Name)
-		name = p.replacer.Replace(name)
+		name := p.name(f)
 		value, has := p.lookupEnv(name)
 		if !has {
 			return
@@ -81,6 +80,19 @@ func (p *Parser) Parse(fs parse.FlagSet) (err error) {
 	})
 
 	return err
+}
+
+func (p *Parser) Name(fs parse.FlagSet) func(*flag.Flag, func(string)) {
+	p.init()
+	return func(f *flag.Flag, it func(string)) {
+		it("$" + p.name(f))
+	}
+}
+
+func (p *Parser) name(f *flag.Flag) string {
+	name := p.Prefix + strings.ToUpper(f.Name)
+	name = p.replacer.Replace(name)
+	return name
 }
 
 func (p *Parser) lookupEnv(name string) (value string, has bool) {
