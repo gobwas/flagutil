@@ -2,6 +2,7 @@ package file
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,7 +18,7 @@ type Syntax interface {
 
 // Lookup is an interface to search for syntax source.
 type Lookup interface {
-	Lookup(parse.FlagGetter) (io.ReadCloser, error)
+	Lookup() (io.ReadCloser, error)
 }
 
 // ErrNoFile is an returned by Lookup implementation to report that lookup
@@ -36,9 +37,9 @@ func (f LookupFunc) Lookup() (io.ReadCloser, error) {
 type MultiLookup []Lookup
 
 // Lookup implements Lookup interface.
-func (ls MultiLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
+func (ls MultiLookup) Lookup() (io.ReadCloser, error) {
 	for _, l := range ls {
-		rc, err := l.Lookup(fs)
+		rc, err := l.Lookup()
 		if err == ErrNoFile {
 			continue
 		}
@@ -52,15 +53,26 @@ func (ls MultiLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
 
 // FlagLookup search for flag with equal name and interprets it as filename to
 // open.
-type FlagLookup string
+type FlagLookup struct {
+	FlagSet *flag.FlagSet
+	Name    string
+}
+
+// LookupFlag is a shortcut to build up a FlagLookup structure.
+func LookupFlag(fs *flag.FlagSet, name string) *FlagLookup {
+	return &FlagLookup{
+		FlagSet: fs,
+		Name:    name,
+	}
+}
 
 // Lookup implements Lookup interface.
-func (s FlagLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
-	f := fs.Lookup(string(s))
-	if f == nil {
+func (f *FlagLookup) Lookup() (io.ReadCloser, error) {
+	flag := f.FlagSet.Lookup(f.Name)
+	if flag == nil {
 		return nil, ErrNoFile
 	}
-	path := f.Value.String()
+	path := flag.Value.String()
 	if path == "" {
 		return nil, ErrNoFile
 	}
@@ -72,7 +84,7 @@ func (s FlagLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
 type PathLookup string
 
 // Lookup implements Lookup interface.
-func (p PathLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
+func (p PathLookup) Lookup() (io.ReadCloser, error) {
 	info, err := os.Stat(string(p))
 	if os.IsNotExist(err) {
 		return nil, ErrNoFile
@@ -93,7 +105,7 @@ func (p PathLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
 type BytesLookup []byte
 
 // Lookup implements Lookup interface.
-func (b BytesLookup) Lookup(fs parse.FlagGetter) (io.ReadCloser, error) {
+func (b BytesLookup) Lookup() (io.ReadCloser, error) {
 	return ioutil.NopCloser(bytes.NewReader(b)), nil
 }
 
@@ -112,7 +124,7 @@ type Parser struct {
 
 // Parse implements flagutil.Parser interface.
 func (p *Parser) Parse(fs parse.FlagSet) error {
-	bts, err := p.readSource(fs)
+	bts, err := p.readSource()
 	if err == ErrNoFile {
 		if p.Required {
 			err = fmt.Errorf("flagutil/file: source not found")
@@ -140,8 +152,8 @@ func (p *Parser) Parse(fs parse.FlagSet) error {
 	})
 }
 
-func (p *Parser) readSource(fs parse.FlagSet) ([]byte, error) {
-	src, err := p.Lookup.Lookup(fs)
+func (p *Parser) readSource() ([]byte, error) {
+	src, err := p.Lookup.Lookup()
 	if err != nil {
 		return nil, err
 	}

@@ -3,9 +3,10 @@ package pargs
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/gobwas/flagutil/parse"
 	"github.com/gobwas/flagutil/parse/testutil"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestPosixParse(t *testing.T) {
@@ -15,6 +16,8 @@ func TestPosixParse(t *testing.T) {
 		exp   [][2]string
 		err   bool
 		flags map[string]bool
+
+		shorthand bool
 	}{
 		{
 			name: "short basic",
@@ -95,6 +98,61 @@ func TestPosixParse(t *testing.T) {
 			},
 			err: true,
 		},
+
+		{
+			name:      "shorthand basic",
+			shorthand: true,
+			flags: map[string]bool{
+				"shorthand": false,
+			},
+			args: []string{
+				"-s=foo",
+			},
+			exp: [][2]string{
+				{"shorthand", "foo"},
+			},
+		},
+		{
+			name:      "shorthand ambiguous",
+			shorthand: true,
+			flags: map[string]bool{
+				"some-foo": false,
+				"some-bar": false,
+			},
+			args: []string{
+				"-s=foo",
+			},
+			exp: [][2]string{
+				{"s", "foo"},
+			},
+		},
+		{
+			name:      "shorthand collision",
+			shorthand: true,
+			flags: map[string]bool{
+				"some-foo": false,
+				"s":        false,
+			},
+			args: []string{
+				"-s=foo",
+			},
+			exp: [][2]string{
+				{"s", "foo"},
+			},
+		},
+		{
+			name:      "shorthand only top",
+			shorthand: true,
+			flags: map[string]bool{
+				"some.foo": false,
+			},
+			args: []string{
+				"-s=foo",
+			},
+			exp: [][2]string{
+				{"s", "foo"},
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var fs testutil.StubFlagSet
@@ -106,7 +164,8 @@ func TestPosixParse(t *testing.T) {
 				}
 			}
 			p := Parser{
-				Args: test.args,
+				Args:      test.args,
+				Shorthand: test.shorthand,
 			}
 			err := p.Parse(&fs)
 			if !test.err && err != nil {

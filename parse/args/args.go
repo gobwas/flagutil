@@ -22,3 +22,9 @@ func (p *Parser) Parse(fs parse.FlagSet) error {
 
 	return dup.Parse(p.Args)
 }
+
+func (p *Parser) Name(fs parse.FlagSet) func(*flag.Flag, func(string)) {
+	return func(f *flag.Flag, it func(string)) {
+		it("-" + f.Name)
+	}
+}
