@@ -3,10 +3,11 @@ package yaml
 import (
 	"testing"
 
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/gobwas/flagutil/parse"
 	"github.com/gobwas/flagutil/parse/file"
 	"github.com/gobwas/flagutil/parse/testutil"
-	yaml "gopkg.in/yaml.v2"
 )
 
 func TestYAML(t *testing.T) {

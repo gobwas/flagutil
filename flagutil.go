@@ -85,7 +85,7 @@ func Parse(flags *flag.FlagSet, opts ...Option) (err error) {
 	return nil
 }
 
-// PrintDefaults prints parser related usage message to flags.Output().
+// PrintDefaults prints parsers aware usage message to flags.Output().
 func PrintDefaults(flags *flag.FlagSet, opts ...PrintOption) {
 	c := config{
 		unquoteUsageMode: UnquoteDefault,
