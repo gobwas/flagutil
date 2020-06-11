@@ -3,6 +3,7 @@ package flagutil
 import (
 	"bytes"
 	"flag"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -21,11 +22,13 @@ func TestPrintUsage(t *testing.T) {
 	fs := flag.NewFlagSet("test", flag.PanicOnError)
 	fs.SetOutput(&buf)
 	var (
-		s string
-		n int
+		foo string
+		bar bool
+		baz int
 	)
-	fs.StringVar(&s, "foo", "", "`custom` description here")
-	fs.IntVar(&n, "bar", n, "description here")
+	fs.StringVar(&foo, "foo", "", "`custom` description here")
+	fs.BoolVar(&bar, "bar", bar, "description here")
+	fs.IntVar(&baz, "baz", baz, "description here")
 
 	PrintDefaults(fs,
 		WithParser(
@@ -37,8 +40,8 @@ func TestPrintUsage(t *testing.T) {
 					}
 				}),
 			},
-			WithIgnoreByPrefix("f"),
-			WithIgnoreByName("bar"),
+			WithStashPrefix("f"),
+			WithStashName("bar"),
 		),
 		WithParser(
 			&fullParser{
@@ -50,7 +53,7 @@ func TestPrintUsage(t *testing.T) {
 					}
 				}),
 			},
-			WithIgnoreByName("foo"),
+			WithStashName("foo"),
 		),
 		WithParser(&fullParser{
 			Parser: nil,
@@ -60,11 +63,12 @@ func TestPrintUsage(t *testing.T) {
 				}
 			}),
 		}),
+		WithStashRegexp(regexp.MustCompile(".*baz.*")),
 	)
 	exp := "" +
 		"  $BAR, -b, -bar\n" +
-		"    \tint\n" +
-		"    \tdescription here (default 0)\n" +
+		"    \tbool\n" +
+		"    \tdescription here (default false)\n" +
 		"\n" +
 		"  $FOO\n" + // -foo is ignored.
 		"    \tcustom\n" +

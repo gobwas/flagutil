@@ -29,20 +29,20 @@ func WithIgnoreUndefined(v bool) FlagSetOption {
 
 func NextLevel(fs FlagSet) {
 	fset := fs.(*flagSet)
-	fset.ignore = nil
+	fset.stash = nil
 	fset.update()
 }
 
-func Ignore(fs FlagSet, fn func(*flag.Flag) bool) {
+func Stash(fs FlagSet, fn func(*flag.Flag) bool) {
 	fset := fs.(*flagSet)
-	fset.ignore = fn
+	fset.stash = fn
 }
 
 type flagSet struct {
 	dest            *flag.FlagSet
 	ignoreUndefined bool
 	provided        map[string]bool
-	ignore          func(*flag.Flag) bool
+	stash           func(*flag.Flag) bool
 }
 
 func NewFlagSet(flags *flag.FlagSet, opts ...FlagSetOption) FlagSet {
@@ -62,7 +62,7 @@ func (fs *flagSet) Set(name, value string) error {
 		return nil
 	}
 	f := fs.dest.Lookup(name)
-	if f != nil && fs.ignored(f) {
+	if f != nil && fs.stashed(f) {
 		f = nil
 	}
 	defined := f != nil
@@ -75,9 +75,9 @@ func (fs *flagSet) Set(name, value string) error {
 	return fs.dest.Set(name, value)
 }
 
-func (fs *flagSet) ignored(f *flag.Flag) bool {
-	ignore := fs.ignore
-	return ignore != nil && ignore(f)
+func (fs *flagSet) stashed(f *flag.Flag) bool {
+	stash := fs.stash
+	return stash != nil && stash(f)
 }
 
 func (fs *flagSet) update() {
@@ -88,7 +88,7 @@ func (fs *flagSet) update() {
 
 func (fs *flagSet) VisitAll(fn func(*flag.Flag)) {
 	fs.dest.VisitAll(func(f *flag.Flag) {
-		if !fs.ignored(f) {
+		if !fs.stashed(f) {
 			fn(fs.clone(f))
 		}
 	})
@@ -96,7 +96,7 @@ func (fs *flagSet) VisitAll(fn func(*flag.Flag)) {
 
 func (fs *flagSet) Lookup(name string) *flag.Flag {
 	f := fs.dest.Lookup(name)
-	if f == nil || fs.ignored(f) {
+	if f == nil || fs.stashed(f) {
 		return nil
 	}
 	return fs.clone(f)

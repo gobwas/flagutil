@@ -36,34 +36,41 @@ func (fn PrinterFunc) Name(fs parse.FlagSet) func(*flag.Flag, func(string)) {
 
 type parser struct {
 	Parser
-	ignore func(*flag.Flag) bool
+	stash func(*flag.Flag) bool
 }
 
 type config struct {
 	parsers          []*parser
+	parserOptions    []ParserOption
 	ignoreUndefined  bool
-	ignoreUsage      bool
+	customUsage      bool
 	unquoteUsageMode UnquoteUsageMode
 }
 
-func Parse(flags *flag.FlagSet, opts ...Option) (err error) {
+func buildConfig(opts []ParseOption) config {
 	c := config{
 		unquoteUsageMode: UnquoteDefault,
 	}
 	for _, opt := range opts {
-		switch x := opt.(type) {
-		case ParseOption:
-			x.setupParseConfig(&c)
-		case PrintOption:
-			x.setupPrintConfig(&c)
+		opt.setupParseConfig(&c)
+	}
+	for _, opt := range c.parserOptions {
+		for _, p := range c.parsers {
+			opt.setupParserConfig(p)
 		}
 	}
+	return c
+}
+
+func Parse(flags *flag.FlagSet, opts ...ParseOption) (err error) {
+	c := buildConfig(opts)
+
 	fs := parse.NewFlagSet(flags,
 		parse.WithIgnoreUndefined(c.ignoreUndefined),
 	)
 	for _, p := range c.parsers {
 		parse.NextLevel(fs)
-		parse.Ignore(fs, p.ignore)
+		parse.Stash(fs, p.stash)
 
 		if err = p.Parse(fs); err != nil {
 			if err == flag.ErrHelp {
@@ -86,18 +93,13 @@ func Parse(flags *flag.FlagSet, opts ...Option) (err error) {
 }
 
 // PrintDefaults prints parsers aware usage message to flags.Output().
-func PrintDefaults(flags *flag.FlagSet, opts ...PrintOption) {
-	c := config{
-		unquoteUsageMode: UnquoteDefault,
-	}
-	for _, opt := range opts {
-		opt.setupPrintConfig(&c)
-	}
+func PrintDefaults(flags *flag.FlagSet, opts ...ParseOption) {
+	c := buildConfig(opts)
 	printDefaults(&c, flags)
 }
 
 func printUsage(c *config, flags *flag.FlagSet) {
-	if !c.ignoreUsage && flags.Usage != nil {
+	if !c.customUsage && flags.Usage != nil {
 		flags.Usage()
 		return
 	}
@@ -161,7 +163,7 @@ func printDefaults(c *config, flags *flag.FlagSet) {
 			if fn == nil {
 				continue
 			}
-			if ignore := c.parsers[i].ignore; ignore != nil && ignore(f) {
+			if stash := c.parsers[i].stash; stash != nil && stash(f) {
 				continue
 			}
 			fn(f, func(name string) {
