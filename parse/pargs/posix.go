@@ -193,7 +193,9 @@ func (p *Parser) next() bool {
 
 func (p *Parser) shorthands(fs parse.FlagSet) map[string]string {
 	short := make(map[string]string)
-	fs.VisitUnspecified(func(f *flag.Flag) {
+	// Need to provide all shorthand aliases to not fail on meeting some
+	// shorthand version of already provided flag.
+	fs.VisitAll(func(f *flag.Flag) {
 		s := p.shorthand(f)
 		if s == "" {
 			return
