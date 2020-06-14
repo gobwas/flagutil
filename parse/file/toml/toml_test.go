@@ -2,6 +2,7 @@ package toml
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -17,7 +18,7 @@ func TestTOML(t *testing.T) {
 			Lookup: file.BytesLookup(marshal(values)),
 			Syntax: new(Syntax),
 		}
-		return p.Parse(fs)
+		return p.Parse(context.Background(), fs)
 	})
 }
 

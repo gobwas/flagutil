@@ -1,27 +1,31 @@
 package env
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/gobwas/flagutil"
 	"github.com/gobwas/flagutil/parse"
 	"github.com/gobwas/flagutil/parse/testutil"
 )
 
+var _ flagutil.Printer = new(Parser)
+
 func TestEnvParser(t *testing.T) {
 	for _, test := range []struct {
 		name   string
-		parser Parser
+		parser *Parser
 		flags  []string
 		env    map[string]string
 		exp    [][2]string
 	}{
 		{
 			name: "basic",
-			parser: Parser{
+			parser: &Parser{
 				Prefix: "F_",
 			},
 			flags: []string{
@@ -50,7 +54,7 @@ func TestEnvParser(t *testing.T) {
 				value, has = test.env[name]
 				return
 			}
-			if err := p.Parse(&fs); err != nil {
+			if err := p.Parse(context.Background(), &fs); err != nil {
 				t.Fatal(err)
 			}
 			if exp, act := test.exp, fs.Pairs(); !cmp.Equal(act, exp) {
@@ -73,7 +77,7 @@ func TestEnv(t *testing.T) {
 			},
 			ListSeparator: ";",
 		}
-		return p.Parse(fs)
+		return p.Parse(context.Background(), fs)
 	})
 }
 

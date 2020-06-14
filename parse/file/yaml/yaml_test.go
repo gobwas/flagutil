@@ -1,6 +1,7 @@
 package yaml
 
 import (
+	"context"
 	"testing"
 
 	yaml "gopkg.in/yaml.v2"
@@ -16,7 +17,7 @@ func TestYAML(t *testing.T) {
 			Lookup: file.BytesLookup(marshal(values)),
 			Syntax: new(Syntax),
 		}
-		return p.Parse(fs)
+		return p.Parse(context.Background(), fs)
 	})
 }
 

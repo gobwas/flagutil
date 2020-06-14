@@ -85,6 +85,15 @@ func (s *StubFlagSet) VisitAll(fn func(*flag.Flag)) {
 	}
 }
 
+func (s *StubFlagSet) VisitUnspecified(fn func(*flag.Flag)) {
+	for _, name := range s.order {
+		fn(&flag.Flag{
+			Name:  name,
+			Value: s.flags[name],
+		})
+	}
+}
+
 func (s *StubFlagSet) Set(name, value string) error {
 	s.pairs = append(s.pairs, [2]string{name, value})
 	return nil

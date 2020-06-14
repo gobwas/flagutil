@@ -2,6 +2,7 @@ package file
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -123,7 +124,7 @@ type Parser struct {
 }
 
 // Parse implements flagutil.Parser interface.
-func (p *Parser) Parse(fs parse.FlagSet) error {
+func (p *Parser) Parse(_ context.Context, fs parse.FlagSet) error {
 	bts, err := p.readSource()
 	if err == ErrNoFile {
 		if p.Required {
