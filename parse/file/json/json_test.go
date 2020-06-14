@@ -1,6 +1,7 @@
 package json
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -15,7 +16,7 @@ func TestJSON(t *testing.T) {
 			Lookup: file.BytesLookup(marshal(values)),
 			Syntax: new(Syntax),
 		}
-		return p.Parse(fs)
+		return p.Parse(context.Background(), fs)
 	})
 }
 

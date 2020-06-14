@@ -1,18 +1,23 @@
 package args
 
 import (
+	"context"
 	"testing"
 
+
+	"github.com/gobwas/flagutil"
 	"github.com/gobwas/flagutil/parse"
 	"github.com/gobwas/flagutil/parse/testutil"
 )
+
+var _ flagutil.Printer = new(Parser)
 
 func TestArgs(t *testing.T) {
 	testutil.TestParser(t, func(values testutil.Values, fs parse.FlagSet) error {
 		p := Parser{
 			Args: marshal(values),
 		}
-		return p.Parse(fs)
+		return p.Parse(context.Background(), fs)
 	})
 }
 

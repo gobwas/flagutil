@@ -1,6 +1,7 @@
 package pargs
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"strings"
@@ -30,7 +31,7 @@ type Parser struct {
 	alias map[string]string
 }
 
-func (p *Parser) Parse(fs parse.FlagSet) (err error) {
+func (p *Parser) Parse(_ context.Context, fs parse.FlagSet) (err error) {
 	p.reset(fs)
 
 	for p.next() {
@@ -59,7 +60,7 @@ func (p *Parser) resolve(name string) string {
 	return name
 }
 
-func (p *Parser) Name(fs parse.FlagSet) func(*flag.Flag, func(string)) {
+func (p *Parser) Name(_ context.Context, fs parse.FlagSet) (func(*flag.Flag, func(string)), error) {
 	short := p.shorthands(fs)
 	return func(f *flag.Flag, it func(string)) {
 		if p.Shorthand {
@@ -75,7 +76,7 @@ func (p *Parser) Name(fs parse.FlagSet) func(*flag.Flag, func(string)) {
 			prefix = "--"
 		}
 		it(prefix + f.Name)
-	}
+	}, nil
 }
 
 func (p *Parser) shorthand(f *flag.Flag) string {
@@ -192,7 +193,7 @@ func (p *Parser) next() bool {
 
 func (p *Parser) shorthands(fs parse.FlagSet) map[string]string {
 	short := make(map[string]string)
-	fs.VisitAll(func(f *flag.Flag) {
+	fs.VisitUnspecified(func(f *flag.Flag) {
 		s := p.shorthand(f)
 		if s == "" {
 			return

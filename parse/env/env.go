@@ -1,6 +1,7 @@
 package env
 
 import (
+	"context"
 	"flag"
 	"os"
 	"strings"
@@ -55,7 +56,7 @@ func makeReplacer(sep string, repl map[string]string) *strings.Replacer {
 	return strings.NewReplacer(oldnew...)
 }
 
-func (p *Parser) Parse(fs parse.FlagSet) (err error) {
+func (p *Parser) Parse(_ context.Context, fs parse.FlagSet) (err error) {
 	p.init()
 
 	set := func(f *flag.Flag, s string) {
@@ -64,7 +65,7 @@ func (p *Parser) Parse(fs parse.FlagSet) (err error) {
 			err = e
 		}
 	}
-	fs.VisitAll(func(f *flag.Flag) {
+	fs.VisitUnspecified(func(f *flag.Flag) {
 		name := p.name(f)
 		value, has := p.lookupEnv(name)
 		if !has {
@@ -82,11 +83,11 @@ func (p *Parser) Parse(fs parse.FlagSet) (err error) {
 	return err
 }
 
-func (p *Parser) Name(fs parse.FlagSet) func(*flag.Flag, func(string)) {
+func (p *Parser) Name(_ context.Context, fs parse.FlagSet) (func(*flag.Flag, func(string)), error) {
 	p.init()
 	return func(f *flag.Flag, it func(string)) {
 		it("$" + p.name(f))
-	}
+	}, nil
 }
 
 func (p *Parser) name(f *flag.Flag) string {

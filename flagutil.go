@@ -2,6 +2,7 @@ package flagutil
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -15,23 +16,23 @@ import (
 var SetSeparator = "."
 
 type Parser interface {
-	Parse(parse.FlagSet) error
+	Parse(context.Context, parse.FlagSet) error
 }
 
-type ParserFunc func(parse.FlagSet) error
+type ParserFunc func(context.Context, parse.FlagSet) error
 
-func (fn ParserFunc) Parse(fs parse.FlagSet) error {
-	return fn(fs)
+func (fn ParserFunc) Parse(ctx context.Context, fs parse.FlagSet) error {
+	return fn(ctx, fs)
 }
 
 type Printer interface {
-	Name(parse.FlagSet) func(*flag.Flag, func(string))
+	Name(context.Context, parse.FlagSet) (func(*flag.Flag, func(string)), error)
 }
 
-type PrinterFunc func(parse.FlagSet) func(*flag.Flag, func(string))
+type PrinterFunc func(context.Context, parse.FlagSet) (func(*flag.Flag, func(string)), error)
 
-func (fn PrinterFunc) Name(fs parse.FlagSet) func(*flag.Flag, func(string)) {
-	return fn(fs)
+func (fn PrinterFunc) Name(ctx context.Context, fs parse.FlagSet) (func(*flag.Flag, func(string)), error) {
+	return fn(ctx, fs)
 }
 
 type parser struct {
@@ -62,7 +63,7 @@ func buildConfig(opts []ParseOption) config {
 	return c
 }
 
-func Parse(flags *flag.FlagSet, opts ...ParseOption) (err error) {
+func Parse(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) (err error) {
 	c := buildConfig(opts)
 
 	fs := parse.NewFlagSet(flags,
@@ -72,9 +73,9 @@ func Parse(flags *flag.FlagSet, opts ...ParseOption) (err error) {
 		parse.NextLevel(fs)
 		parse.Stash(fs, p.stash)
 
-		if err = p.Parse(fs); err != nil {
+		if err = p.Parse(ctx, fs); err != nil {
 			if err == flag.ErrHelp {
-				printUsage(&c, flags)
+				_ = printUsage(ctx, &c, flags)
 			}
 			switch flags.ErrorHandling() {
 			case flag.ContinueOnError:
@@ -93,22 +94,22 @@ func Parse(flags *flag.FlagSet, opts ...ParseOption) (err error) {
 }
 
 // PrintDefaults prints parsers aware usage message to flags.Output().
-func PrintDefaults(flags *flag.FlagSet, opts ...ParseOption) {
+func PrintDefaults(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) error {
 	c := buildConfig(opts)
-	printDefaults(&c, flags)
+	return printDefaults(ctx, &c, flags)
 }
 
-func printUsage(c *config, flags *flag.FlagSet) {
+func printUsage(ctx context.Context, c *config, flags *flag.FlagSet) error {
 	if !c.customUsage && flags.Usage != nil {
 		flags.Usage()
-		return
+		return nil
 	}
 	if name := flags.Name(); name == "" {
 		fmt.Fprintf(flags.Output(), "Usage:\n")
 	} else {
 		fmt.Fprintf(flags.Output(), "Usage of %s:\n", name)
 	}
-	printDefaults(c, flags)
+	return printDefaults(ctx, c, flags)
 }
 
 type UnquoteUsageMode uint8
@@ -143,7 +144,7 @@ func (m UnquoteUsageMode) has(x UnquoteUsageMode) bool {
 	return m&x != 0
 }
 
-func printDefaults(c *config, flags *flag.FlagSet) {
+func printDefaults(ctx context.Context, c *config, flags *flag.FlagSet) (err error) {
 	fs := parse.NewFlagSet(flags)
 
 	var hasNameFunc bool
@@ -151,7 +152,10 @@ func printDefaults(c *config, flags *flag.FlagSet) {
 	for i := len(c.parsers) - 1; i >= 0; i-- {
 		if p, ok := c.parsers[i].Parser.(Printer); ok {
 			hasNameFunc = true
-			nameFunc[i] = p.Name(fs)
+			nameFunc[i], err = p.Name(ctx, fs)
+			if err != nil {
+				return
+			}
 		}
 	}
 
@@ -203,6 +207,8 @@ func printDefaults(c *config, flags *flag.FlagSet) {
 		buf.WriteByte('\n')
 		buf.WriteTo(flags.Output())
 	})
+
+	return nil
 }
 
 func defValue(f *flag.Flag) string {

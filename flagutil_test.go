@@ -2,6 +2,7 @@ package flagutil
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"regexp"
 	"strings"
@@ -30,14 +31,14 @@ func TestPrintUsage(t *testing.T) {
 	fs.BoolVar(&bar, "bar", bar, "description here")
 	fs.IntVar(&baz, "baz", baz, "description here")
 
-	PrintDefaults(fs,
+	PrintDefaults(context.Background(), fs,
 		WithParser(
 			&fullParser{
 				Parser: nil,
-				Printer: PrinterFunc(func(fs parse.FlagSet) func(*flag.Flag, func(string)) {
+				Printer: PrinterFunc(func(_ context.Context, fs parse.FlagSet) (func(*flag.Flag, func(string)), error) {
 					return func(f *flag.Flag, it func(string)) {
 						it("MUST-IGNORE-" + strings.ToUpper(f.Name))
-					}
+					}, nil
 				}),
 			},
 			WithStashPrefix("f"),
@@ -46,21 +47,21 @@ func TestPrintUsage(t *testing.T) {
 		WithParser(
 			&fullParser{
 				Parser: nil,
-				Printer: PrinterFunc(func(fs parse.FlagSet) func(*flag.Flag, func(string)) {
+				Printer: PrinterFunc(func(_ context.Context, fs parse.FlagSet) (func(*flag.Flag, func(string)), error) {
 					return func(f *flag.Flag, it func(string)) {
 						it("-" + string(f.Name[0]))
 						it("-" + f.Name)
-					}
+					}, nil
 				}),
 			},
 			WithStashName("foo"),
 		),
 		WithParser(&fullParser{
 			Parser: nil,
-			Printer: PrinterFunc(func(fs parse.FlagSet) func(*flag.Flag, func(string)) {
+			Printer: PrinterFunc(func(_ context.Context, fs parse.FlagSet) (func(*flag.Flag, func(string)), error) {
 				return func(f *flag.Flag, it func(string)) {
 					it("$" + strings.ToUpper(f.Name))
-				}
+				}, nil
 			}),
 		}),
 		WithStashRegexp(regexp.MustCompile(".*baz.*")),

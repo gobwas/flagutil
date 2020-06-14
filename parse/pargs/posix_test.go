@@ -1,13 +1,17 @@
 package pargs
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/gobwas/flagutil"
 	"github.com/gobwas/flagutil/parse"
 	"github.com/gobwas/flagutil/parse/testutil"
 )
+
+var _ flagutil.Printer = new(Parser)
 
 func TestPosixParse(t *testing.T) {
 	for _, test := range []struct {
@@ -167,7 +171,7 @@ func TestPosixParse(t *testing.T) {
 				Args:      test.args,
 				Shorthand: test.shorthand,
 			}
-			err := p.Parse(&fs)
+			err := p.Parse(context.Background(), &fs)
 			if !test.err && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -192,7 +196,7 @@ func TestPosix(t *testing.T) {
 		p := Parser{
 			Args: marshal(values),
 		}
-		return p.Parse(fs)
+		return p.Parse(context.Background(), fs)
 	})
 }
 

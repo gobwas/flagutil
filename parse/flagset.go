@@ -8,6 +8,7 @@ import (
 type FlagGetter interface {
 	Lookup(name string) *flag.Flag
 	VisitAll(func(*flag.Flag))
+	VisitUnspecified(func(*flag.Flag))
 }
 
 type FlagSetter interface {
@@ -83,6 +84,14 @@ func (fs *flagSet) stashed(f *flag.Flag) bool {
 func (fs *flagSet) update() {
 	fs.dest.Visit(func(f *flag.Flag) {
 		fs.provided[f.Name] = true
+	})
+}
+
+func (fs *flagSet) VisitUnspecified(fn func(*flag.Flag)) {
+	fs.dest.VisitAll(func(f *flag.Flag) {
+		if !fs.provided[f.Name] && !fs.stashed(f) {
+			fn(fs.clone(f))
+		}
 	})
 }
 
