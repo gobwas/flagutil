@@ -74,7 +74,7 @@ func main() {
 				Syntax: new(json.Syntax),
 			},
 			// Don't allow to setup "config" flag from file.
-			flagutil.WithIgnoreByName("config"),
+			flagutil.WithStashName("config"),
 		),
 	)
 
