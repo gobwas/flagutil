@@ -1,9 +1,11 @@
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/gobwas/prompt v0.0.0-20200614125756-3a711fd8dd13 h1:uSZXv0wHIxaPzmgy0RwoQkMz5/nK75fde/7dJABpXiI=
-github.com/gobwas/prompt v0.0.0-20200614125756-3a711fd8dd13/go.mod h1:eDSc3qYGXAHZ1Yyl68L9uaLvqya9+LIyeHkxS8+Tz9E=
+github.com/gobwas/prompt v0.2.2 h1:ri/sgOnLzXAwm2nUI7/jM0kJ24MVMob/01+n5OaZmJ8=
+github.com/gobwas/prompt v0.2.2/go.mod h1:UVO2T+b2GvmPMwT07n3gxtzepiAu6N3GP177DjDN1l8=
 github.com/google/go-cmp v0.4.0 h1:xsAVV57WRhGj6kEIi8ReJzQlHHqcBYCElAvkovg3B/4=
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
+golang.org/x/sys v0.0.0-20200610111108-226ff32320da h1:bGb80FudwxpeucJUjPYJXuJ8Hk91vNtfvrymzwiei38=
+golang.org/x/sys v0.0.0-20200610111108-226ff32320da/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 h1:E7g+9GITq07hpfrRu66IVDexMakfv52eLZ2CXBWiKr4=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=

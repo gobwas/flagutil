@@ -29,6 +29,7 @@ At the moment these parsers are already implemented:
 - [Flag][flag-syntax] syntax arguments parser
 - [Posix][posix] program arguments syntax parser
 - Environment variables parser
+- Prompt interactive parser
 - File parsers:
   - json
   - yaml
