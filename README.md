@@ -21,7 +21,41 @@ instead of standard [flag][flag] package.
 There is [Configuration in Go][article] article, which describes in detail the
 reasons of creating this library.
 
+# Available parsers
+
+Note that it is very easy to implement your own [Parser][parser].
+
+At the moment these parsers are already implemented:
+- [Flag][flag-syntax] syntax arguments parser
+- [Posix][posix] program arguments syntax parser
+- Environment variables parser
+- File parsers:
+  - json
+  - yaml
+  - toml
+
+# Custom help message
+
+It is possible to print custom help message which may include, for example,
+names of the environment variables used by env parser. See the
+`WithCustomUsage()` parse option.
+
+Custom usage currently looks like this:
+
+```
+Usage of test:
+  $TEST_FOO, --foo
+        bool
+        bool flag description (default false)
+
+  $TEST_BAR, --bar
+        int
+        int flag description (default 42)
+```
+
 # Usage
+
+A simple example could be like this:
 
 ```go
 package main
@@ -37,14 +71,67 @@ import (
 func main() {
 	flags := flag.NewFlagSet("my-app", flag.ExitOnError)
 	
-	// Define top level parameters.
-	var port int
-	flag.IntVar(&port,
+	port := flag.Int(&port,
 		"port", "port",
 		"port to bind to",
 	)
 
-	// Now define parameters for some third-party library.
+	// This flag will be required by the file.Parser below.
+	_ = flags.String(
+		"config", "/etc/app/config.json", 
+		"path to configuration file",
+	)
+
+	flagutil.Parse(flags,
+		// Use posix options syntax instead of `flag` – just to illustrate that
+		// it is possible.
+		flagutil.WithParser(&pargs.Parser{
+			Args: os.Args[1:],
+		}),	
+
+		// Then lookup flag values among environment.
+		flagutil.WithParser(&env.Parser{
+			Prefix: "MY_APP_",
+		}),
+
+		// Finally lookup for "config" flag value and try to interpret its
+		// value as a path to json configuration file.
+		flagutil.WithParser(
+			&file.Parser{
+				Lookup: file.LookupFlag(flags, "config"),
+				Syntax: new(json.Syntax),
+			},
+			// Don't allow to setup "config" flag from file.
+			flagutil.WithStashName("config"),
+		),
+	)
+
+	// Work with received values.
+}
+```
+
+However, `flagutil` provides ability to define so called flag subsets:
+
+```go
+package main
+
+import (
+	"flag"
+
+	"github.com/gobwas/flagutil"
+	"github.com/gobwas/flagutil/parse/pargs"
+	"github.com/gobwas/flagutil/parse/file/json"
+)
+
+func main() {
+	flags := flag.NewFlagSet("my-app", flag.ExitOnError)
+	
+	port := flag.Int(&port,
+		"port", "port",
+		"port to bind to",
+	)
+
+	// Define parameters for some third-party library.
 	var endpoint string
 	flagutil.Subset(flags, "database", func(sub *flag.FlagSet) {
 		sub.StringVar(&endpoint,
@@ -53,28 +140,15 @@ func main() {
 		)
 	})
 	
-	// This flag will be required by the file.Parser below.
-	flags.String(
-		"config", "/etc/app/config.json", 
-		"path to configuration file",
-	)
-
 	flagutil.Parse(flags,
-		// First, use posix options syntax instead of `flag` – just to
-		// illustrate that it is possible.
 		flagutil.WithParser(&pargs.Parser{
 			Args: os.Args[1:],
 		}),	
-
-		// Then lookup for "config" flag value and try to parse its value as a
-		// json configuration file.
 		flagutil.WithParser(
 			&file.Parser{
-				Lookup: file.LookupFlag(flags, "config"),
+				Lookup: file.PathLookup("/etc/my-app/config.json"),
 				Syntax: new(json.Syntax),
 			},
-			// Don't allow to setup "config" flag from file.
-			flagutil.WithStashName("config"),
 		),
 	)
 
@@ -98,21 +172,8 @@ And, if you want to override, say, database endpoint, you can execute your
 program as follows:
 
 ```bash
-$ app --config config.json --database.endpoint 4055
+$ app --database.endpoint 4055
 ```
-
-# Available parsers
-
-Note that it is very easy to implement your own [Parser][parser].
-
-At the moment these parsers are already implemented:
-- [Flag][flag-syntax] syntax arguments parser
-- [Posix][posix] program arguments syntax parser
-- Environment variables parser
-- File parsers:
-  - json
-  - yaml
-  - toml
 
 # Conventions and limitations
 
