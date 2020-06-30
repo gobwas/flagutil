@@ -14,6 +14,14 @@ type ParserOption interface {
 	setupParserConfig(*parser)
 }
 
+func WithParseOptions(opts ...ParseOption) ParseOptionFunc {
+	return ParseOptionFunc(func(c *config) {
+		for _, opt := range opts {
+			opt.setupParseConfig(c)
+		}
+	})
+}
+
 type ParseOptionFunc func(*config)
 
 func (fn ParseOptionFunc) setupParseConfig(c *config) { fn(c) }
