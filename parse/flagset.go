@@ -73,7 +73,11 @@ func (fs *flagSet) Set(name, value string) error {
 	if !defined {
 		return fmt.Errorf("no such flag %q", name)
 	}
-	return fs.dest.Set(name, value)
+	err := fs.dest.Set(name, value)
+	if err != nil {
+		err = fmt.Errorf("set %q: %w", name, err)
+	}
+	return err
 }
 
 func (fs *flagSet) stashed(f *flag.Flag) bool {
