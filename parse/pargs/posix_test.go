@@ -157,6 +157,13 @@ func TestPosixParse(t *testing.T) {
 				{"s", "foo"},
 			},
 		},
+
+		{
+			name:  "non-existing",
+			flags: map[string]bool{},
+			args:  []string{"-w"},
+			err:   true,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var fs testutil.StubFlagSet

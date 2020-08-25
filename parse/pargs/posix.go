@@ -122,6 +122,9 @@ func (p *Parser) isBoolFlag(name string) bool {
 		// Special case for help message request.
 		return true
 	}
+	if f == nil {
+		return false
+	}
 	return isBoolFlag(f)
 }
 
