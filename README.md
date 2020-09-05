@@ -242,14 +242,14 @@ Creation of this library was greatly inspired by [peterburgon/ff][ff] – and I
 wouldn't write `flagutil` if I didn't met some design disagreement with it.
 
 
-[parser]:       https://godoc.org/github.com/gobwas/flagutil#Parser
-[flag]:         https://golang.org/pkg/flag
-[flagSet]:      https://golang.org/pkg/flag#FlagSet
-[flag-syntax]:  https://golang.org/pkg/flag/#hdr-Command_line_flag_syntax
-[article]:      https://gbws.io/articles/configuration-in-go
-[godoc-image]:  https://godoc.org/github.com/gobwas/flagutil?status.svg
-[godoc-url]:    https://godoc.org/github.com/gobwas/flagutil
-[posix]:        https://www.gnu.org/software/libc/manual/html_node/Argument-Syntax.html
-[ff]:           https://github.com/peterbourgon/ff
-[ci-badge]:     https://github.com/gobwas/flagutil/workflows/CI/badge.svg
-[ci-url]:       https://github.com/gobwas/flagutil/actions?query=workflow%3ACI
+[parser]:      https://godoc.org/github.com/gobwas/flagutil#Parser
+[flag]:        https://golang.org/pkg/flag
+[flagSet]:     https://golang.org/pkg/flag#FlagSet
+[flag-syntax]: https://golang.org/pkg/flag/#hdr-Command_line_flag_syntax
+[article]:     https://gbws.io/articles/configuration-in-go
+[godoc-image]: https://godoc.org/github.com/gobwas/flagutil?status.svg
+[godoc-url]:   https://godoc.org/github.com/gobwas/flagutil
+[posix]:       https://www.gnu.org/software/libc/manual/html_node/Argument-Syntax.html
+[ff]:          https://github.com/peterbourgon/ff
+[ci-badge]:    https://github.com/gobwas/flagutil/workflows/CI/badge.svg
+[ci-url]:      https://github.com/gobwas/flagutil/actions?query=workflow%3ACI
