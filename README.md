@@ -1,7 +1,7 @@
 # flagutil
 
 [![GoDoc][godoc-image]][godoc-url]
-[![Travis][travis-image]][travis-url]
+[![CI][ci-badge]][ci-url]
 
 > A library to populate [`flag.FlagSet`][flagSet] from various sources.
 
@@ -249,7 +249,7 @@ wouldn't write `flagutil` if I didn't met some design disagreement with it.
 [article]:      https://gbws.io/articles/configuration-in-go
 [godoc-image]:  https://godoc.org/github.com/gobwas/flagutil?status.svg
 [godoc-url]:    https://godoc.org/github.com/gobwas/flagutil
-[travis-image]: https://travis-ci.org/gobwas/flagutil.svg?branch=master
-[travis-url]:   https://travis-ci.org/gobwas/flagutil
 [posix]:        https://www.gnu.org/software/libc/manual/html_node/Argument-Syntax.html
 [ff]:           https://github.com/peterbourgon/ff
+[ci-badge]:     https://github.com/gobwas/flagutil/workflows/CI/badge.svg
+[ci-url]:       https://github.com/gobwas/flagutil/actions?query=workflow%3ACI
