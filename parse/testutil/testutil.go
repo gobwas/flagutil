@@ -31,6 +31,8 @@ func (v *stubValue) IsBoolFlag() bool {
 }
 
 type StubFlagSet struct {
+	IgnoreUndefined bool
+
 	flags map[string]flag.Value
 	order []string
 	pairs [][2]string
@@ -95,7 +97,15 @@ func (s *StubFlagSet) VisitUnspecified(fn func(*flag.Flag)) {
 }
 
 func (s *StubFlagSet) Set(name, value string) error {
-	s.pairs = append(s.pairs, [2]string{name, value})
+	_, has := s.flags[name]
+	switch {
+	case !has && s.IgnoreUndefined:
+		return nil
+	case !has:
+		return fmt.Errorf("no such flag %q", name)
+	default:
+		s.pairs = append(s.pairs, [2]string{name, value})
+	}
 	return nil
 }
 
