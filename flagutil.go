@@ -75,7 +75,7 @@ func Parse(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) (err e
 
 		if err = p.Parse(ctx, fs); err != nil {
 			if err == flag.ErrHelp {
-				_ = printUsage(ctx, &c, flags)
+				_ = printUsageMaybe(ctx, &c, flags)
 			}
 			if err != nil {
 				err = fmt.Errorf("flagutil: parse error: %w", err)
@@ -102,7 +102,7 @@ func PrintDefaults(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption
 	return printDefaults(ctx, &c, flags)
 }
 
-func printUsage(ctx context.Context, c *config, flags *flag.FlagSet) error {
+func printUsageMaybe(ctx context.Context, c *config, flags *flag.FlagSet) error {
 	if !c.customUsage && flags.Usage != nil {
 		flags.Usage()
 		return nil
