@@ -112,7 +112,7 @@ func (p *Parser) isBoolFlag(name string) bool {
 }
 
 func (p *Parser) fail(f string, args ...interface{}) {
-	p.err = fmt.Errorf(f, args...)
+	p.err = fmt.Errorf("args: %s", fmt.Sprintf(f, args...))
 }
 
 func split(s string, sep byte) (a, b string, ok bool) {

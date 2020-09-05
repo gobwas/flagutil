@@ -24,7 +24,7 @@ type Lookup interface {
 
 // ErrNoFile is an returned by Lookup implementation to report that lookup
 // didn't find any file to parse.
-var ErrNoFile = fmt.Errorf("flagutil/file: no file")
+var ErrNoFile = fmt.Errorf("file: no file")
 
 // LookupFunc is an adapter that allows the use of ordinar functions as Lookup.
 type LookupFunc func() (io.ReadCloser, error)
@@ -95,7 +95,7 @@ func (p PathLookup) Lookup() (io.ReadCloser, error) {
 	}
 	if info.IsDir() {
 		return nil, fmt.Errorf(
-			"flagutil/file: can't parse %s since its dir",
+			"file: can't parse %s since its dir",
 			p,
 		)
 	}
@@ -128,7 +128,7 @@ func (p *Parser) Parse(_ context.Context, fs parse.FlagSet) error {
 	bts, err := p.readSource()
 	if err == ErrNoFile {
 		if p.Required {
-			err = fmt.Errorf("flagutil/file: source not found")
+			err = fmt.Errorf("file: source not found")
 		} else {
 			err = nil
 		}
@@ -141,7 +141,7 @@ func (p *Parser) Parse(_ context.Context, fs parse.FlagSet) error {
 	}
 	x, err := p.Syntax.Unmarshal(bts)
 	if err != nil {
-		return fmt.Errorf("flagutil/file: syntax error: %v", err)
+		return fmt.Errorf("file: syntax error: %v", err)
 	}
 	return parse.Setup(x, parse.VisitorFunc{
 		SetFunc: func(name, value string) error {
