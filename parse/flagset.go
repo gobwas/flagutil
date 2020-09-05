@@ -71,7 +71,7 @@ func (fs *flagSet) Set(name, value string) error {
 		return nil
 	}
 	if !defined {
-		return fmt.Errorf("no such flag %q", name)
+		return fmt.Errorf("flag provided but not defined: %q", name)
 	}
 	err := fs.dest.Set(name, value)
 	if err != nil {
