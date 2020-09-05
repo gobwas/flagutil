@@ -1,3 +1,6 @@
+// Package pargs implements POSIX program argument syntax conventions.
+//
+// See https://www.gnu.org/software/libc/manual/html_node/Argument-Syntax.html
 package pargs
 
 import (
@@ -49,8 +52,14 @@ func (p *Parser) Parse(_ context.Context, fs parse.FlagSet) (err error) {
 			return err
 		}
 	}
-
 	return p.err
+}
+
+func (p *Parser) NonOptionArgs() []string {
+	if p.pos < len(p.Args) {
+		return p.Args[p.pos:]
+	}
+	return nil
 }
 
 func (p *Parser) resolve(name string) string {
@@ -136,11 +145,11 @@ func (p *Parser) next() bool {
 		return false
 	}
 	s := p.Args[p.pos]
-	p.pos++
-	p.mult = false
 	if len(s) < 2 || s[0] != '-' {
 		return false
 	}
+	p.mult = false
+	p.pos++
 	var short bool
 	if s[1] == '-' {
 		if len(s) == 2 {
@@ -180,6 +189,10 @@ func (p *Parser) next() bool {
 		}
 	} else {
 		if !hasValue {
+			if !p.isBoolFlag(name) {
+				p.fail("argument is required for option %q", name)
+				return false
+			}
 			value = "true"
 		}
 	}

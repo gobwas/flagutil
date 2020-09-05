@@ -15,12 +15,12 @@ var _ flagutil.Printer = new(Parser)
 
 func TestPosixParse(t *testing.T) {
 	for _, test := range []struct {
-		name  string
-		args  []string
-		exp   [][2]string
-		err   bool
-		flags map[string]bool
-
+		name      string
+		args      []string
+		expPairs  [][2]string
+		expArgs   []string
+		err       bool
+		flags     map[string]bool
 		shorthand bool
 	}{
 		{
@@ -41,7 +41,7 @@ func TestPosixParse(t *testing.T) {
 				"f": false,
 				"g": false,
 			},
-			exp: [][2]string{
+			expPairs: [][2]string{
 				{"a", "true"},
 				{"b", "true"},
 				{"c", "true"},
@@ -66,7 +66,7 @@ func TestPosixParse(t *testing.T) {
 				"bar": false,
 				"opt": false,
 			},
-			exp: [][2]string{
+			expPairs: [][2]string{
 				{"a", "true"},
 				{"foo", "true"},
 				{"bar", "baz"},
@@ -74,7 +74,7 @@ func TestPosixParse(t *testing.T) {
 			},
 		},
 		{
-			name: "boolean things",
+			name: "booleans",
 			args: []string{
 				"-t", "true",
 				"-f", "false",
@@ -83,10 +83,20 @@ func TestPosixParse(t *testing.T) {
 				"t": true,
 				"f": true,
 			},
-			exp: [][2]string{
+			expPairs: [][2]string{
 				{"t", "true"},
 				{"f", "false"},
 			},
+		},
+		{
+			name: "non-boolean without argument",
+			args: []string{
+				"--param",
+			},
+			flags: map[string]bool{
+				"param": false,
+			},
+			err: true,
 		},
 		{
 			name: "invalid name",
@@ -104,6 +114,46 @@ func TestPosixParse(t *testing.T) {
 		},
 
 		{
+			name: "non-flag arguments basic",
+			args: []string{
+				"-a",
+				"--param", "value",
+				"arg1", "arg2", "arg3",
+			},
+			flags: map[string]bool{
+				"a":     true,
+				"param": false,
+			},
+			expPairs: [][2]string{
+				{"a", "true"},
+				{"param", "value"},
+			},
+			expArgs: []string{
+				"arg1", "arg2", "arg3",
+			},
+		},
+		{
+			name: "non-flag arguments basic with dash-dash",
+			args: []string{
+				"-a",
+				"--param", "value",
+				"--",
+				"arg1", "arg2", "arg3",
+			},
+			flags: map[string]bool{
+				"a":     true,
+				"param": false,
+			},
+			expPairs: [][2]string{
+				{"a", "true"},
+				{"param", "value"},
+			},
+			expArgs: []string{
+				"arg1", "arg2", "arg3",
+			},
+		},
+
+		{
 			name:      "shorthand basic",
 			shorthand: true,
 			flags: map[string]bool{
@@ -112,7 +162,7 @@ func TestPosixParse(t *testing.T) {
 			args: []string{
 				"-s=foo",
 			},
-			exp: [][2]string{
+			expPairs: [][2]string{
 				{"shorthand", "foo"},
 			},
 		},
@@ -126,9 +176,7 @@ func TestPosixParse(t *testing.T) {
 			args: []string{
 				"-s=foo",
 			},
-			exp: [][2]string{
-				{"s", "foo"},
-			},
+			err: true,
 		},
 		{
 			name:      "shorthand collision",
@@ -140,7 +188,7 @@ func TestPosixParse(t *testing.T) {
 			args: []string{
 				"-s=foo",
 			},
-			exp: [][2]string{
+			expPairs: [][2]string{
 				{"s", "foo"},
 			},
 		},
@@ -153,15 +201,25 @@ func TestPosixParse(t *testing.T) {
 			args: []string{
 				"-s=foo",
 			},
-			exp: [][2]string{
-				{"s", "foo"},
-			},
+			err: true,
 		},
 
 		{
-			name:  "non-existing",
+			name:  "non-existing-short-single",
 			flags: map[string]bool{},
 			args:  []string{"-w"},
+			err:   true,
+		},
+		{
+			name:  "non-existing-short-multi",
+			flags: map[string]bool{},
+			args:  []string{"-www"},
+			err:   true,
+		},
+		{
+			name:  "non-existing-long",
+			flags: map[string]bool{},
+			args:  []string{"--www"},
 			err:   true,
 		},
 	} {
@@ -188,9 +246,15 @@ func TestPosixParse(t *testing.T) {
 			if test.err {
 				return
 			}
-			if exp, act := test.exp, fs.Pairs(); !cmp.Equal(act, exp) {
+			if exp, act := test.expPairs, fs.Pairs(); !cmp.Equal(act, exp) {
 				t.Errorf(
 					"unexpected set pairs:\n%s",
+					cmp.Diff(exp, act),
+				)
+			}
+			if exp, act := test.expArgs, p.NonOptionArgs(); !cmp.Equal(act, exp) {
+				t.Errorf(
+					"unexpected non-flag arguments:\n%s",
 					cmp.Diff(exp, act),
 				)
 			}
