@@ -77,16 +77,19 @@ func Parse(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) (err e
 			if err == flag.ErrHelp {
 				_ = printUsage(ctx, &c, flags)
 			}
+			if err != nil {
+				err = fmt.Errorf("flagutil: parse error: %w", err)
+			}
 			switch flags.ErrorHandling() {
 			case flag.ContinueOnError:
 				return err
 			case flag.ExitOnError:
 				if err != flag.ErrHelp {
-					fmt.Fprintf(flags.Output(), "flagutil: parse error: %v\n", err)
+					fmt.Fprintf(flags.Output(), "%v\n", err)
 				}
 				os.Exit(2)
 			case flag.PanicOnError:
-				panic(fmt.Sprintf("flagutil: parse error: %v", err))
+				panic(err.Error())
 			}
 		}
 	}
