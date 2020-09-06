@@ -81,6 +81,18 @@ func (p *Parser) next() bool {
 	if !hasValue && p.pos < len(p.Args) {
 		value = p.Args[p.pos]
 		if len(value) > 0 && value[0] != '-' {
+			// NOTE: this is NOT the same behaviour as for flag.Parse().
+			//       flag.Parse() works well if we pass `-flag=true`, but not
+			//       if we pass `-flag true`.
+			if p.isBoolFlag(name) {
+				p.fail(""+
+					"ambiguous boolean flag -%s value: can't guess whether "+
+					"the %q is the flag value or the non-flag argument "+
+					"(consider using `=` or `--`)",
+					name, value,
+				)
+				return false
+			}
 			hasValue = true
 			p.pos++
 		}

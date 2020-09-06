@@ -33,8 +33,8 @@ func TestFlagsParseArgs(t *testing.T) {
 			},
 			args: []string{
 				"-a",
-				"-b", "true",
-				"-c", "false",
+				"-b=true",
+				"-c=false",
 				"-foo", "value",
 				"--bar", "value",
 				"arg1", "arg2", "arg3",
