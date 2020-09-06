@@ -88,7 +88,7 @@ func (p *Parser) next() bool {
 				p.fail(""+
 					"ambiguous boolean flag -%[1]s value: can't guess whether "+
 					"the %[2]q is the flag value or the non-flag argument "+
-					"(consider using `%[1]s=%[2]s` or `%[1]s -- %[2]s`)",
+					"(consider using `-%[1]s=%[2]s` or `-%[1]s -- %[2]s`)",
 					name, value,
 				)
 				return false
