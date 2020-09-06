@@ -74,10 +74,10 @@ func TestPosixParse(t *testing.T) {
 			},
 		},
 		{
-			name: "booleans",
+			name: "short booleans",
 			args: []string{
-				"-t", "true",
-				"-f", "false",
+				"-t=true",
+				"-f=false",
 			},
 			flags: map[string]bool{
 				"t": true,
@@ -87,6 +87,45 @@ func TestPosixParse(t *testing.T) {
 				{"t", "true"},
 				{"f", "false"},
 			},
+		},
+		{
+			name: "short ambiguous booleans",
+			args: []string{
+				"-t", "true",
+				"-f", "false",
+			},
+			flags: map[string]bool{
+				"t": true,
+				"f": true,
+			},
+			err: true,
+		},
+		{
+			name: "long booleans",
+			args: []string{
+				"--foo=true",
+				"--bar=false",
+			},
+			flags: map[string]bool{
+				"foo": true,
+				"bar": true,
+			},
+			expPairs: [][2]string{
+				{"foo", "true"},
+				{"bar", "false"},
+			},
+		},
+		{
+			name: "long ambiguous booleans",
+			args: []string{
+				"--foo", "true",
+				"--bar", "false",
+			},
+			flags: map[string]bool{
+				"foo": true,
+				"bar": true,
+			},
+			err: true,
 		},
 		{
 			name: "non-boolean without argument",

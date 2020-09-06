@@ -165,6 +165,19 @@ func (p *Parser) next() bool {
 	if !hasValue && p.pos < len(p.Args) {
 		value = p.Args[p.pos]
 		if len(value) > 0 && value[0] != '-' {
+			if p.isBoolFlag(name) {
+				dash := "--"
+				if short {
+					dash = "-"
+				}
+				p.fail(""+
+					"ambiguous boolean flag %[1]s%[2]s value: can't guess whether "+
+					"the %[3]q is the flag value or the non-flag argument "+
+					"(consider using `%[1]s%[2]s=%[3]s` or `%[1]s%[2]s -- %[3]s`)",
+					dash, name, value,
+				)
+				return false
+			}
 			hasValue = true
 			p.pos++
 		}
