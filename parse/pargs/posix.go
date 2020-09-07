@@ -40,12 +40,15 @@ func (p *Parser) Parse(_ context.Context, fs parse.FlagSet) (err error) {
 	for p.next() {
 		p.pairs(func(name, value string) bool {
 			name = p.resolve(name)
-			// Special case for help request.
-			if fs.Lookup(name) == nil && (name == "help" || name == "h") {
+
+			_, isHelp := lookup(fs, name)
+			if isHelp {
 				err = flag.ErrHelp
 				return false
 			}
+
 			err = fs.Set(name, value)
+
 			return err == nil
 		})
 		if err != nil {
@@ -124,11 +127,16 @@ func (p *Parser) reset(fs parse.FlagSet) {
 	}
 }
 
+func lookup(fs parse.FlagSet, name string) (f *flag.Flag, isHelp bool) {
+	f = fs.Lookup(name)
+	isHelp = f == nil && (name == "h" || name == "help")
+	return
+}
+
 func (p *Parser) isBoolFlag(name string) bool {
 	name = p.resolve(name)
-	f := p.fs.Lookup(name)
-	if f == nil && name == "h" {
-		// Special case for help message request.
+	f, isHelp := lookup(p.fs, name)
+	if isHelp {
 		return true
 	}
 	if f == nil {
