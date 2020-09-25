@@ -56,7 +56,7 @@ func TestFlagsParseArgs(t *testing.T) {
 				"param": false,
 			},
 			args: []string{
-				"--param", "value",
+				"-param", "value",
 				"--",
 				"arg1", "arg2", "arg3",
 			},
@@ -73,7 +73,7 @@ func TestFlagsParseArgs(t *testing.T) {
 				"param": false,
 			},
 			args: []string{
-				"--param",
+				"-param",
 				"",
 			},
 			expPairs: [][2]string{
@@ -86,10 +86,25 @@ func TestFlagsParseArgs(t *testing.T) {
 				"param": true,
 			},
 			args: []string{
-				"--param",
+				"-param",
 				"",
 			},
 			err: true,
+		},
+		{
+			name: "last bool arg",
+			flags: map[string]bool{
+				"param1": false,
+				"param2": true,
+			},
+			args: []string{
+				"-param1", "value",
+				"-param2",
+			},
+			expPairs: [][2]string{
+				{"param1", "value"},
+				{"param2", "true"},
+			},
 		},
 		{
 			name: "basic error",
