@@ -68,6 +68,30 @@ func TestFlagsParseArgs(t *testing.T) {
 			},
 		},
 		{
+			name: "empty arg",
+			flags: map[string]bool{
+				"param": false,
+			},
+			args: []string{
+				"--param",
+				"",
+			},
+			expPairs: [][2]string{
+				{"param", ""},
+			},
+		},
+		{
+			name: "empty bool arg",
+			flags: map[string]bool{
+				"param": true,
+			},
+			args: []string{
+				"--param",
+				"",
+			},
+			err: true,
+		},
+		{
 			name: "basic error",
 			flags: map[string]bool{
 				"param": false,

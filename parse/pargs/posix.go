@@ -172,7 +172,7 @@ func (p *Parser) next() bool {
 	name, value, hasValue := split(s, '=')
 	if !hasValue && p.pos < len(p.Args) {
 		value = p.Args[p.pos]
-		if len(value) > 0 && value[0] != '-' {
+		if len(value) == 0 || value[0] != '-' {
 			if p.isBoolFlag(name) {
 				dash := "--"
 				if short {

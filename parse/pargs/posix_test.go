@@ -116,6 +116,28 @@ func TestPosixParse(t *testing.T) {
 			},
 		},
 		{
+			name: "empty parameter",
+			args: []string{
+				"--foo", "",
+			},
+			flags: map[string]bool{
+				"foo": false,
+			},
+			expPairs: [][2]string{
+				{"foo", ""},
+			},
+		},
+		{
+			name: "empty boolean",
+			args: []string{
+				"--foo", "",
+			},
+			flags: map[string]bool{
+				"foo": true,
+			},
+			err: true,
+		},
+		{
 			name: "long ambiguous booleans",
 			args: []string{
 				"--foo", "true",
