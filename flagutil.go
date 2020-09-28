@@ -3,6 +3,7 @@ package flagutil
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -74,7 +75,7 @@ func Parse(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) (err e
 		parse.Stash(fs, p.stash)
 
 		if err = p.Parse(ctx, fs); err != nil {
-			if err == flag.ErrHelp {
+			if errors.Is(err, flag.ErrHelp) {
 				_ = printUsageMaybe(ctx, &c, flags)
 			}
 			if err != nil {
@@ -84,7 +85,7 @@ func Parse(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) (err e
 			case flag.ContinueOnError:
 				return err
 			case flag.ExitOnError:
-				if err != flag.ErrHelp {
+				if !errors.Is(err, flag.ErrHelp) {
 					fmt.Fprintf(flags.Output(), "%v\n", err)
 				}
 				os.Exit(2)
