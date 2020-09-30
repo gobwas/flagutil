@@ -420,8 +420,8 @@ type joinVar struct {
 }
 
 // MergeUsage specifies way of joining two different flag usage strings.
-var MergeUsage = func(a, b string) string {
-	return a + " / " + b
+var MergeUsage = func(name string, usage0, usage1 string) string {
+	return usage0 + " / " + usage1
 }
 
 // Merge merges new flagset into superset and resolves any name collisions.
@@ -456,10 +456,10 @@ func merge(dst, src *flag.Flag) {
 	// NOTE: we don't change dst.DefValue since it remains unchanged as well as
 	// in flag package.
 	dst.Value = valuePair{dst.Value, src.Value}
-	dst.Usage = mergeUsage(dst.Usage, src.Usage)
+	dst.Usage = mergeUsage(dst.Name, dst.Usage, src.Usage)
 }
 
-func mergeUsage(s0, s1 string) string {
+func mergeUsage(name, s0, s1 string) string {
 	switch {
 	case s0 == "":
 		return s1
@@ -468,7 +468,7 @@ func mergeUsage(s0, s1 string) string {
 	case s0 == s1:
 		return s0
 	default:
-		return MergeUsage(s0, s1)
+		return MergeUsage(name, s0, s1)
 	}
 }
 
