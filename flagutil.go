@@ -309,6 +309,9 @@ func inferType(f *flag.Flag) string {
 	v := reflect.ValueOf(x)
 
 repeat:
+	if !v.IsValid() {
+		return ""
+	}
 	switch v.Type() {
 	case reflect.TypeOf(time.Duration(0)):
 		return "duration"
@@ -446,6 +449,23 @@ func (p valuePair) Set(val string) error {
 		}
 	}
 	return nil
+}
+
+func (p valuePair) Get() interface{} {
+	var (
+		v0 interface{}
+		v1 interface{}
+	)
+	if g0, ok := p[0].(flag.Getter); ok {
+		v0 = g0.Get()
+	}
+	if g1, ok := p[1].(flag.Getter); ok {
+		v1 = g1.Get()
+	}
+	if !reflect.DeepEqual(v0, v1) {
+		return nil
+	}
+	return v0
 }
 
 func (p valuePair) String() string {
