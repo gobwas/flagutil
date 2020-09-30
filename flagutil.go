@@ -252,7 +252,7 @@ repeat:
 		reflect.Map:
 		return `{}`
 	}
-	return "?"
+	return ""
 }
 
 // defValueStd returns default value as it does std lib.
@@ -430,8 +430,10 @@ var MergeUsage = func(name string, usage0, usage1 string) string {
 //
 // If name of the flag defined in the subset already present in a superset,
 // flag values are merged. That is, flag will remain in the superset, but
-// setting it will lead both parameters to be filled with same values.
+// setting its value will make both parameters filled with received value.
 // Description of each flag (if differ) is joined with MergeSeparator.
+// Default values (and initial values of where flag.Value points to) are kept
+// untouched and may differ if no value is set during parsing phase.
 func Merge(super *flag.FlagSet, setup func(*flag.FlagSet)) {
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
 	setup(fs)
@@ -452,9 +454,12 @@ func merge(dst, src *flag.Flag) {
 			dst.Name, src.Name,
 		))
 	}
-	src.Value.Set(dst.Value.String())
-	// NOTE: we don't change dst.DefValue since it remains unchanged as well as
-	// in flag package.
+	if dst.DefValue != src.DefValue {
+		// Clear default values to be printed in usage to empty string since
+		// they are differ.
+		dst.DefValue = ""
+		src.DefValue = ""
+	}
 	dst.Value = valuePair{dst.Value, src.Value}
 	dst.Usage = mergeUsage(dst.Name, dst.Usage, src.Usage)
 }

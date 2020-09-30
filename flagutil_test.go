@@ -180,7 +180,7 @@ func ExampleMerge() {
 
 	// Output:
 	// 42
-	// 42
+	// 84
 	// 34
 	// 34
 	// some flag usage here / another flag usage here
@@ -227,8 +227,8 @@ func TestMerge(t *testing.T) {
 	Merge(fs, func(fs *flag.FlagSet) {
 		fs.StringVar(&s2, "foo", "baq", "subset2 usage")
 	})
-	if s0 != s1 || s1 != s2 {
-		t.Fatalf("strings are not equal: %q vs %q vs %q", s0, s1, s2)
+	if s0 == s1 || s1 == s2 {
+		t.Fatalf("strings are equal: %q vs %q vs %q", s0, s1, s2)
 	}
 	if err := fs.Set("foo", "42"); err != nil {
 		t.Fatal(err)
