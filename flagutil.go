@@ -195,15 +195,20 @@ func printDefaults(ctx context.Context, c *config, flags *flag.FlagSet) (err err
 			buf.WriteString("\n    \t")
 			buf.WriteString(name)
 		}
+		value := defValue(f)
 		buf.WriteString("\n    \t")
 		if len(usage) > 0 {
 			buf.WriteString(strings.ReplaceAll(usage, "\n", "\n    \t"))
-			buf.WriteString(" (")
+			if len(value) > 0 {
+				buf.WriteString(" (")
+			}
 		}
-		buf.WriteString("default ")
-		buf.WriteString(defValue(f))
-		if len(usage) > 0 {
-			buf.WriteString(")")
+		if len(value) > 0 {
+			buf.WriteString("default ")
+			buf.WriteString(defValue(f))
+			if len(usage) > 0 {
+				buf.WriteString(")")
+			}
 		}
 
 		buf.WriteByte('\n')
@@ -215,32 +220,52 @@ func printDefaults(ctx context.Context, c *config, flags *flag.FlagSet) (err err
 }
 
 func defValue(f *flag.Flag) string {
-	v := reflect.ValueOf(f.Value)
+	if def := f.DefValue; def != "" {
+		return def
+	}
+	g, ok := f.Value.(flag.Getter)
+	if !ok {
+		return ""
+	}
+	v := reflect.ValueOf(g.Get())
 repeat:
+	if !v.IsValid() {
+		return ""
+	}
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 		goto repeat
 	}
-	d := f.DefValue
-	if d == "" {
-		switch v.Kind() {
-		case reflect.String:
-			return `""`
-		case
-			reflect.Slice,
-			reflect.Array:
-			return `[]`
-		case
-			reflect.Struct,
-			reflect.Map:
-			return `{}`
-		}
-		return "?"
+	switch v.Kind() {
+	case reflect.String:
+		return `""`
+	case
+		reflect.Slice,
+		reflect.Array:
+		return `[]`
+	case
+		reflect.Struct,
+		reflect.Map:
+		return `{}`
 	}
-	if v.Kind() == reflect.String {
-		return `"` + d + `"`
+	return "?"
+}
+
+// defValueStd returns default value as it does std lib.
+// NOTE: this one is unused.
+func defValueStd(f *flag.Flag) string {
+	t := reflect.TypeOf(f.Value)
+	var z reflect.Value
+	if t.Kind() == reflect.Ptr {
+		z = reflect.New(t.Elem())
+	} else {
+		z = reflect.Zero(t)
 	}
-	return d
+	zero := z.Interface().(flag.Value).String()
+	if v := f.DefValue; v != zero {
+		return v
+	}
+	return ""
 }
 
 // unquoteUsage is the same as flag.UnquoteUsage() with exception that it does
@@ -424,6 +449,8 @@ func merge(dst, src *flag.Flag) {
 		))
 	}
 	src.Value.Set(dst.Value.String())
+	// NOTE: we don't change dst.DefValue since it remains unchanged as well as
+	// in flag package.
 	dst.Value = valuePair{dst.Value, src.Value}
 	dst.Usage = mergeUsage(dst.Usage, src.Usage)
 }
@@ -470,6 +497,9 @@ func (p valuePair) Get() interface{} {
 }
 
 func (p valuePair) String() string {
+	if p.isZero() {
+		return ""
+	}
 	s0 := p[0].String()
 	s1 := p[1].String()
 	if s0 != s1 {
@@ -478,4 +508,8 @@ func (p valuePair) String() string {
 		))
 	}
 	return s0
+}
+
+func (p valuePair) isZero() bool {
+	return p == valuePair{}
 }
