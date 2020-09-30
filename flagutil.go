@@ -220,14 +220,18 @@ func printDefaults(ctx context.Context, c *config, flags *flag.FlagSet) (err err
 }
 
 func defValue(f *flag.Flag) string {
+	var x interface{}
+	g, ok := f.Value.(flag.Getter)
+	if ok {
+		x = g.Get()
+	}
 	if def := f.DefValue; def != "" {
+		if _, ok := x.(string); ok {
+			def = `"` + def + `"`
+		}
 		return def
 	}
-	g, ok := f.Value.(flag.Getter)
-	if !ok {
-		return ""
-	}
-	v := reflect.ValueOf(g.Get())
+	v := reflect.ValueOf(x)
 repeat:
 	if !v.IsValid() {
 		return ""
