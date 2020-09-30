@@ -390,9 +390,10 @@ type joinVar struct {
 	flags []*flag.Flag
 }
 
-// MergeUsageSeparator specifies string to be used between flag usage strings
-// in resulting usage string when using Merge().
-var MergeUsageSeparator = " / "
+// MergeUsage specifies way of joining two different flag usage strings.
+var MergeUsage = func(a, b string) string {
+	return a + " / " + b
+}
 
 // Merge merges new flagset into superset and resolves any name collisions.
 // It calls setup function to let caller register needed flags within subset
@@ -436,7 +437,7 @@ func mergeUsage(s0, s1 string) string {
 	case s0 == s1:
 		return s0
 	default:
-		return s0 + MergeUsageSeparator + s1
+		return MergeUsage(s0, s1)
 	}
 }
 
