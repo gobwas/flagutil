@@ -111,7 +111,9 @@ func main() {
 }
 ```
 
-However, `flagutil` provides ability to define so called flag subsets:
+## Subsets
+
+`flagutil` provides ability to define so called flag subsets:
 
 ```go
 package main
@@ -175,6 +177,35 @@ program as follows:
 ```bash
 $ app --database.endpoint 4055
 ```
+
+## Allowing name collisions
+
+It's rare, but still possible, when you want to receive single flag value from
+multiple places in code. To avoid panics with "flag redefined" reason you can
+(if you _really_ need to) _merge_ two flag values into single by using
+`flagutil.Merge()` function:
+
+```go
+var (
+	s0 string
+	s1 string
+)
+flag.StringVar(&s0,
+	"foo", "default",
+	"foo flag usage",
+)
+flagutil.Merge(flag.CommandLine, func(safe *flag.FlagSet) {
+	safe.StringVar(&s1,
+		"foo", "",
+		"foo flag another usage", // This usage will be joined with previous.
+	)
+})
+
+// After parsing, s0 and s1 will be filled with single `-foo` flag value.
+// If value is not provided, both s0 and s1 will have its default values (which
+// may be _different_).
+```
+
 
 # Conventions and limitations
 
