@@ -361,11 +361,14 @@ func Subset(super *flag.FlagSet, prefix string, setup func(sub *flag.FlagSet)) (
 	setup(sub)
 	sub.VisitAll(func(f *flag.Flag) {
 		name := prefix + "." + f.Name
-		if super.Lookup(name) != nil && err == nil {
-			err = fmt.Errorf(
-				"flag %q already exists in a super set",
-				name,
-			)
+		if super.Lookup(name) != nil {
+			if err == nil {
+				err = fmt.Errorf(
+					"flag %q already exists in a super set",
+					name,
+				)
+				// TODO: should we panic here if super has PanicOnError?
+			}
 			return
 		}
 		super.Var(f.Value, name, f.Usage)
@@ -378,4 +381,80 @@ func isBoolFlag(f *flag.Flag) bool {
 		IsBoolFlag() bool
 	})
 	return ok && x.IsBoolFlag()
+}
+
+type joinVar struct {
+	flags []*flag.Flag
+}
+
+// MergeUsageSeparator specifies string to be used between flag usage strings
+// in resulting usage string when using Merge().
+var MergeUsageSeparator = " / "
+
+// Merge merges new flagset into superset and resolves any name collisions.
+// It calls setup function to let caller register needed flags within subset
+// before they are merged into the superset.
+//
+// If name of the flag defined in the subset already present in a superset,
+// flag values are merged. That is, flag will remain in the superset, but
+// setting it will lead both parameters to be filled with same values.
+// Description of each flag (if differ) is joined with MergeSeparator.
+func Merge(super *flag.FlagSet, setup func(*flag.FlagSet)) {
+	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	setup(fs)
+	fs.VisitAll(func(next *flag.Flag) {
+		prev := super.Lookup(next.Name)
+		if prev == nil {
+			super.Var(next.Value, next.Name, next.Usage)
+			return
+		}
+		merge(prev, next)
+	})
+}
+
+func merge(dst, src *flag.Flag) {
+	if dst.Name != src.Name {
+		panic(fmt.Sprintf(
+			"flagutil: can't merge flags with different names: %q vs %q",
+			dst.Name, src.Name,
+		))
+	}
+	src.Value.Set(dst.Value.String())
+	dst.Value = valuePair{dst.Value, src.Value}
+	dst.Usage = mergeUsage(dst.Usage, src.Usage)
+}
+
+func mergeUsage(s0, s1 string) string {
+	switch {
+	case s0 == "":
+		return s1
+	case s1 == "":
+		return s0
+	case s0 == s1:
+		return s0
+	default:
+		return s0 + MergeUsageSeparator + s1
+	}
+}
+
+type valuePair [2]flag.Value
+
+func (p valuePair) Set(val string) error {
+	for _, v := range p {
+		if err := v.Set(val); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p valuePair) String() string {
+	s0 := p[0].String()
+	s1 := p[1].String()
+	if s0 != s1 {
+		panic(fmt.Sprintf(
+			"flagutil: valuePair has not equal String() results",
+		))
+	}
+	return s0
 }

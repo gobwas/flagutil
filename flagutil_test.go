@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -142,6 +143,109 @@ func TestUnquoteUsage(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func ExampleMerge() {
+	fs := flag.NewFlagSet("superset", flag.PanicOnError)
+	var (
+		s0 string
+		s1 string
+	)
+	// Setup flag in a superset.
+	fs.StringVar(&s0,
+		"foo", "42",
+		"some flag usage here",
+	)
+	// Now we need to setup same flag (probably from some different place).
+	// Setting it up again in a superset will cause error.
+	Merge(fs, func(sub *flag.FlagSet) {
+		// Notice that default value of this flag is different.
+		// However, it will be discarded in favour of default value from superset.
+		sub.StringVar(&s1,
+			"foo", "84",
+			"another flag usage here",
+		)
+	})
+
+	fmt.Println(s0)
+	fmt.Println(s1)
+
+	fs.Set("foo", "34")
+	fmt.Println(s0)
+	fmt.Println(s1)
+
+	flag := fs.Lookup("foo")
+	fmt.Println(flag.Usage)
+
+	// Output:
+	// 42
+	// 42
+	// 34
+	// 34
+	// some flag usage here / another flag usage here
+}
+
+func ExampleMerge_different_types() {
+	fs := flag.NewFlagSet("superset", flag.PanicOnError)
+	var (
+		s string
+		i int
+	)
+	fs.StringVar(&s,
+		"foo", "42",
+		"some flag usage here",
+	)
+	Merge(fs, func(sub *flag.FlagSet) {
+		sub.IntVar(&i,
+			"foo", 84,
+			"another flag usage here",
+		)
+	})
+	fs.Set("foo", "34")
+	fmt.Println(s)
+	fmt.Println(i)
+	// Output:
+	// 34
+	// 34
+}
+
+func TestMerge(t *testing.T) {
+	fs := flag.NewFlagSet(t.Name(), flag.PanicOnError)
+	var (
+		s0 string
+		s1 string
+		s2 string
+	)
+	fs.StringVar(&s0,
+		"foo", "bar",
+		"superset usage",
+	)
+	Merge(fs, func(fs *flag.FlagSet) {
+		fs.StringVar(&s1, "foo", "baz", "subset1 usage")
+	})
+	Merge(fs, func(fs *flag.FlagSet) {
+		fs.StringVar(&s2, "foo", "baq", "subset2 usage")
+	})
+	if s0 != s1 || s1 != s2 {
+		t.Fatalf("strings are not equal: %q vs %q vs %q", s0, s1, s2)
+	}
+	if err := fs.Set("foo", "42"); err != nil {
+		t.Fatal(err)
+	}
+	if s0 != "42" {
+		t.Fatalf("unexpected value after Set(): %q", s0)
+	}
+	if s0 != s1 || s1 != s2 {
+		t.Fatalf("strings are not equal: %q vs %q vs %q", s0, s1, s2)
+	}
+
+	f := fs.Lookup("foo")
+	if s := f.Value.String(); s != s0 {
+		t.Fatalf("String() is %q; want %q", s, s0)
+	}
+	if act, exp := f.Usage, "superset usage / subset1 usage / subset2 usage"; act != exp {
+		t.Fatalf("unexpected usage: %q; want %q", act, exp)
 	}
 }
 
