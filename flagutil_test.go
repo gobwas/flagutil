@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strings"
 	"testing"
@@ -246,6 +247,109 @@ func TestMerge(t *testing.T) {
 	}
 	if act, exp := f.Usage, "superset usage / subset1 usage / subset2 usage"; act != exp {
 		t.Fatalf("unexpected usage: %q; want %q", act, exp)
+	}
+}
+
+func TestMergeFlags(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		flags []flag.Flag
+		exp   []flag.Flag
+		panic bool
+	}{
+		{
+			name: "different names",
+			flags: []flag.Flag{
+				stringFlag("foo", "def", "desc#0"),
+				stringFlag("bar", "def", "desc#1"),
+			},
+			panic: true,
+		},
+		{
+			name: "different default values",
+			flags: []flag.Flag{
+				stringFlag("foo", "def#0", "desc#0"),
+				stringFlag("foo", "def#1", "desc#1"),
+			},
+			exp: []flag.Flag{
+				stringFlag("foo", "", "desc#0 / desc#1"),
+				stringFlag("foo", "", "desc#0 / desc#1"),
+			},
+		},
+		{
+			name: "basic",
+			flags: []flag.Flag{
+				stringFlag("foo", "def", "desc#0"),
+				stringFlag("foo", "def", "desc#1"),
+			},
+			exp: []flag.Flag{
+				stringFlag("foo", "def", "desc#0 / desc#1"),
+				stringFlag("foo", "def", "desc#0 / desc#1"),
+			},
+		},
+		{
+			name: "basic",
+			flags: []flag.Flag{
+				stringFlag("foo", "def", "desc#0"),
+				stringFlag("foo", "def", "desc#1"),
+				stringFlag("foo", "", "desc#2"),
+			},
+			exp: []flag.Flag{
+				stringFlag("foo", "", "desc#0 / desc#1 / desc#2"),
+				stringFlag("foo", "", "desc#0 / desc#1 / desc#2"),
+				stringFlag("foo", "", "desc#0 / desc#1 / desc#2"),
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if !test.panic && len(test.flags) != len(test.exp) {
+				t.Skip("malformed test")
+			}
+			ptrs := make([]*flag.Flag, len(test.flags))
+			for i := range test.flags {
+				ptrs[i] = &test.flags[i]
+			}
+			done := make(chan interface{})
+			go func() {
+				defer func() {
+					done <- recover()
+				}()
+				MergeFlags(ptrs...)
+			}()
+			p := <-done
+			if !test.panic && p != nil {
+				t.Fatalf("panic() recovered: %s", p)
+			}
+			if test.panic {
+				if p == nil {
+					t.Fatalf("want panic; got nothing")
+				}
+				return
+			}
+			opts := []cmp.Option{
+				cmp.Transformer("Value", func(v flag.Value) string {
+					return v.String()
+				}),
+			}
+			for i, exp := range test.exp {
+				act := test.flags[i]
+				if !cmp.Equal(act, exp, opts...) {
+					t.Errorf("unexpected #%d flag:\n%s", i, cmp.Diff(exp, act, opts...))
+				}
+			}
+			exp := fmt.Sprintf("%x", rand.Int63())
+			if err := test.flags[0].Value.Set(exp); err != nil {
+				t.Fatalf("unexpected Set() error: %v", err)
+			}
+			for i, f := range test.flags {
+				if act := f.Value.String(); act != exp {
+					t.Errorf(
+						"unexpected #%d flag value: %q; want %q",
+						i, act, exp,
+					)
+				}
+			}
+		})
 	}
 }
 

@@ -409,7 +409,10 @@ func Subset(super *flag.FlagSet, prefix string, setup func(sub *flag.FlagSet)) (
 }
 
 func isBoolFlag(f *flag.Flag) bool {
-	x, ok := f.Value.(interface {
+	return isBoolValue(f.Value)
+}
+func isBoolValue(v flag.Value) bool {
+	x, ok := v.(interface {
 		IsBoolFlag() bool
 	})
 	return ok && x.IsBoolFlag()
@@ -429,11 +432,14 @@ var MergeUsage = func(name string, usage0, usage1 string) string {
 // before they are merged into the superset.
 //
 // If name of the flag defined in the subset already present in a superset,
-// flag values are merged. That is, flag will remain in the superset, but
-// setting its value will make both parameters filled with received value.
-// Description of each flag (if differ) is joined with MergeSeparator.
-// Default values (and initial values of where flag.Value points to) are kept
-// untouched and may differ if no value is set during parsing phase.
+// then subset flag is merged into superset's one. That is, flag will remain in
+// the superset, but setting its value will make both parameters filled with
+// received value.
+//
+// Description of each flag (if differ) is joined by MergeUsage().
+//
+// Note that default values (and initial values of where flag.Value points to)
+// are kept untouched and may differ if no value is set during parsing phase.
 func Merge(super *flag.FlagSet, setup func(*flag.FlagSet)) {
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
 	setup(fs)
@@ -443,25 +449,64 @@ func Merge(super *flag.FlagSet, setup func(*flag.FlagSet)) {
 			super.Var(next.Value, next.Name, next.Usage)
 			return
 		}
-		merge(prev, next)
+		*prev = *Combine(prev, next)
 	})
 }
 
-func merge(dst, src *flag.Flag) {
-	if dst.Name != src.Name {
+// MergeFlags makes all given flags look like single one. That is, setting
+// value of any given flag will cause value of all flags change.
+func MergeFlags(fs ...*flag.Flag) {
+	if len(fs) < 2 {
+		return
+	}
+	var (
+		noDef  bool
+		latest *flag.Flag
+	)
+	for i := 1; i < len(fs); i++ {
+		f0 := fs[i-1]
+		f1 := fs[i-0]
+		c := Combine(f0, f1)
+		*f0 = *c
+		*f1 = *c
+
+		latest = c
+		if c.DefValue == "" {
+			noDef = true
+		}
+	}
+	for i := 0; i < len(fs); i++ {
+		fs[i].Usage = latest.Usage
+		fs[i].Value = latest.Value
+		if noDef {
+			fs[i].DefValue = ""
+		}
+	}
+}
+
+// Combine combines given flags into a third one.
+// Setting value of returned flag will cause both given flags change their
+// values as well.
+//
+// Description of each flag (if differ) is joined by MergeUsage().
+func Combine(f0, f1 *flag.Flag) *flag.Flag {
+	if f0.Name != f1.Name {
 		panic(fmt.Sprintf(
-			"flagutil: can't merge flags with different names: %q vs %q",
-			dst.Name, src.Name,
+			"flagutil: can't combine flags with different names: %q vs %q",
+			f0.Name, f1.Name,
 		))
 	}
-	if dst.DefValue != src.DefValue {
-		// Clear default values to be printed in usage to empty string since
-		// they are differ.
-		dst.DefValue = ""
-		src.DefValue = ""
+	r := flag.Flag{
+		Name:  f0.Name,
+		Value: valuePair{f0.Value, f1.Value},
+		Usage: mergeUsage(f0.Name, f0.Usage, f1.Usage),
 	}
-	dst.Value = valuePair{dst.Value, src.Value}
-	dst.Usage = mergeUsage(dst.Name, dst.Usage, src.Usage)
+	// Clear default values to be printed in usage to empty string since
+	// they are different.
+	if f0.DefValue == f1.DefValue {
+		r.DefValue = f0.DefValue
+	}
+	return &r
 }
 
 func mergeUsage(name, s0, s1 string) string {
@@ -512,11 +557,16 @@ func (p valuePair) String() string {
 	s0 := p[0].String()
 	s1 := p[1].String()
 	if s0 != s1 {
-		panic(fmt.Sprintf(
-			"flagutil: valuePair has not equal String() results",
-		))
+		return ""
 	}
 	return s0
+}
+
+func (p valuePair) IsBoolFlag() bool {
+	if isBoolValue(p[0]) && isBoolValue(p[1]) {
+		return true
+	}
+	return false
 }
 
 func (p valuePair) isZero() bool {
