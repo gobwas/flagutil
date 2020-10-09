@@ -194,7 +194,7 @@ flag.StringVar(&s0,
 	"foo", "default",
 	"foo flag usage",
 )
-flagutil.Merge(flag.CommandLine, func(safe *flag.FlagSet) {
+flagutil.MergeInto(flag.CommandLine, func(safe *flag.FlagSet) {
 	safe.StringVar(&s1,
 		"foo", "",
 		"foo flag another usage", // This usage will be joined with previous.
