@@ -250,16 +250,89 @@ func TestMerge(t *testing.T) {
 	}
 }
 
-func TestMergeFlags(t *testing.T) {
+func TestCombineSets(t *testing.T) {
+	var (
+		nameInBoth   = "both"
+		nameInFirst  = "first"
+		nameInSecond = "second"
+		nameUnknown  = "whoa"
+	)
+	var (
+		fs0 = flag.NewFlagSet("FlagSet#0", flag.ContinueOnError)
+		fs1 = flag.NewFlagSet("FlagSet#1", flag.ContinueOnError)
+	)
+	fs0.String(nameInFirst, "first-default", "")
+	fs0.String(nameInBoth, "both-default-0", "")
+	fs1.String(nameInBoth, "both-default-1", "")
+	fs1.String(nameInSecond, "second-default", "")
+
+	fs := CombineSets(fs0, fs1)
+
+	mustNotBeDefined(t, fs, nameUnknown)
+	mustBeEqualTo(t, fs, nameInFirst, "first-default")
+	mustBeEqualTo(t, fs, nameInSecond, "second-default")
+	mustBeEqualTo(t, fs, nameInBoth, "")
+
+	mustNotSet(t, fs, nameUnknown, "want error")
+
+	mustSet(t, fs, nameInFirst, "first")
+	mustBeEqualTo(t, fs, nameInFirst, "first")
+	mustBeEqualTo(t, fs0, nameInFirst, "first")
+
+	mustSet(t, fs, nameInSecond, "second")
+	mustBeEqualTo(t, fs, nameInSecond, "second")
+	mustBeEqualTo(t, fs1, nameInSecond, "second")
+
+	mustSet(t, fs, nameInBoth, "both")
+	mustBeEqualTo(t, fs, nameInBoth, "both")
+	mustBeEqualTo(t, fs0, nameInBoth, "both")
+	mustBeEqualTo(t, fs1, nameInBoth, "both")
+}
+
+func mustNotSet(t *testing.T, fs *flag.FlagSet, name, value string) {
+	if err := fs.Set(name, value); err == nil {
+		t.Fatalf(
+			"want error on setting flag %q value to %q: %v",
+			name, value, err,
+		)
+	}
+}
+
+func mustSet(t *testing.T, fs *flag.FlagSet, name, value string) {
+	if err := fs.Set(name, value); err != nil {
+		t.Fatalf("can't set flag %q value to %q: %v", name, value, err)
+	}
+}
+
+func mustBeEqualTo(t *testing.T, fs *flag.FlagSet, name, value string) {
+	mustBeDefined(t, fs, name)
+	if act, exp := fs.Lookup(name).Value.String(), value; act != exp {
+		t.Fatalf("flag %q value is %q; want %q", name, act, exp)
+	}
+}
+
+func mustNotBeDefined(t *testing.T, fs *flag.FlagSet, name string) {
+	if fs.Lookup(name) != nil {
+		t.Fatalf("want flag %q to not be present in set", name)
+	}
+}
+
+func mustBeDefined(t *testing.T, fs *flag.FlagSet, name string) {
+	if fs.Lookup(name) == nil {
+		t.Fatalf("want flag %q to be present in set", name)
+	}
+}
+
+func TestCombineFlags(t *testing.T) {
 	for _, test := range []struct {
 		name  string
-		flags []flag.Flag
-		exp   []flag.Flag
+		flags [2]flag.Flag
+		exp   flag.Flag
 		panic bool
 	}{
 		{
 			name: "different names",
-			flags: []flag.Flag{
+			flags: [2]flag.Flag{
 				stringFlag("foo", "def", "desc#0"),
 				stringFlag("bar", "def", "desc#1"),
 			},
@@ -267,61 +340,53 @@ func TestMergeFlags(t *testing.T) {
 		},
 		{
 			name: "different default values",
-			flags: []flag.Flag{
+			flags: [2]flag.Flag{
 				stringFlag("foo", "def#0", "desc#0"),
 				stringFlag("foo", "def#1", "desc#1"),
 			},
-			exp: []flag.Flag{
-				stringFlag("foo", "", "desc#0 / desc#1"),
-				stringFlag("foo", "", "desc#0 / desc#1"),
-			},
+			exp: stringFlag("foo", "", "desc#0 / desc#1"),
 		},
 		{
 			name: "basic",
-			flags: []flag.Flag{
+			flags: [2]flag.Flag{
 				stringFlag("foo", "def", "desc#0"),
 				stringFlag("foo", "def", "desc#1"),
 			},
-			exp: []flag.Flag{
-				stringFlag("foo", "def", "desc#0 / desc#1"),
-				stringFlag("foo", "def", "desc#0 / desc#1"),
-			},
+			exp: stringFlag("foo", "def", "desc#0 / desc#1"),
 		},
 		{
 			name: "basic",
-			flags: []flag.Flag{
+			flags: [2]flag.Flag{
 				stringFlag("foo", "def", "desc#0"),
-				stringFlag("foo", "def", "desc#1"),
-				stringFlag("foo", "", "desc#2"),
+				stringFlag("foo", "", "desc#1"),
 			},
-			exp: []flag.Flag{
-				stringFlag("foo", "", "desc#0 / desc#1 / desc#2"),
-				stringFlag("foo", "", "desc#0 / desc#1 / desc#2"),
-				stringFlag("foo", "", "desc#0 / desc#1 / desc#2"),
-			},
+			exp: stringFlag("foo", "", "desc#0 / desc#1"),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if !test.panic && len(test.flags) != len(test.exp) {
-				t.Skip("malformed test")
+			type flagOrPanic struct {
+				flag  *flag.Flag
+				panic interface{}
 			}
-			ptrs := make([]*flag.Flag, len(test.flags))
-			for i := range test.flags {
-				ptrs[i] = &test.flags[i]
-			}
-			done := make(chan interface{})
+			done := make(chan flagOrPanic)
 			go func() {
 				defer func() {
-					done <- recover()
+					if p := recover(); p != nil {
+						done <- flagOrPanic{
+							panic: p,
+						}
+					}
 				}()
-				MergeFlags(ptrs...)
+				done <- flagOrPanic{
+					flag: CombineFlags(&test.flags[0], &test.flags[1]),
+				}
 			}()
-			p := <-done
-			if !test.panic && p != nil {
-				t.Fatalf("panic() recovered: %s", p)
+			x := <-done
+			if !test.panic && x.panic != nil {
+				t.Fatalf("panic() recovered: %s", x.panic)
 			}
 			if test.panic {
-				if p == nil {
+				if x.panic == nil {
 					t.Fatalf("want panic; got nothing")
 				}
 				return
@@ -331,22 +396,16 @@ func TestMergeFlags(t *testing.T) {
 					return v.String()
 				}),
 			}
-			for i, exp := range test.exp {
-				act := test.flags[i]
-				if !cmp.Equal(act, exp, opts...) {
-					t.Errorf("unexpected #%d flag:\n%s", i, cmp.Diff(exp, act, opts...))
-				}
+			if act, exp := x.flag, &test.exp; !cmp.Equal(act, exp, opts...) {
+				t.Errorf("unexpected flag:\n%s", cmp.Diff(exp, act, opts...))
 			}
 			exp := fmt.Sprintf("%x", rand.Int63())
-			if err := test.flags[0].Value.Set(exp); err != nil {
+			if err := x.flag.Value.Set(exp); err != nil {
 				t.Fatalf("unexpected Set() error: %v", err)
 			}
-			for i, f := range test.flags {
+			for _, f := range test.flags {
 				if act := f.Value.String(); act != exp {
-					t.Errorf(
-						"unexpected #%d flag value: %q; want %q",
-						i, act, exp,
-					)
+					t.Errorf("unexpected flag value: %s; want %s", act, exp)
 				}
 			}
 		})

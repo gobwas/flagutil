@@ -427,7 +427,7 @@ var MergeUsage = func(name string, usage0, usage1 string) string {
 	return usage0 + " / " + usage1
 }
 
-// Merge merges new flagset into superset and resolves any name collisions.
+// MergeInto merges new flagset into superset and resolves any name collisions.
 // It calls setup function to let caller register needed flags within subset
 // before they are merged into the superset.
 //
@@ -440,7 +440,7 @@ var MergeUsage = func(name string, usage0, usage1 string) string {
 //
 // Note that default values (and initial values of where flag.Value points to)
 // are kept untouched and may differ if no value is set during parsing phase.
-func Merge(super *flag.FlagSet, setup func(*flag.FlagSet)) {
+func MergeInto(super *flag.FlagSet, setup func(*flag.FlagSet)) {
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
 	setup(fs)
 	fs.VisitAll(func(next *flag.Flag) {
@@ -449,47 +449,58 @@ func Merge(super *flag.FlagSet, setup func(*flag.FlagSet)) {
 			super.Var(next.Value, next.Name, next.Usage)
 			return
 		}
-		*prev = *Combine(prev, next)
+		*prev = *CombineFlags(prev, next)
 	})
 }
 
-// MergeFlags makes all given flags look like single one. That is, setting
-// value of any given flag will cause value of all flags change.
-func MergeFlags(fs ...*flag.Flag) {
-	if len(fs) < 2 {
-		return
-	}
-	var (
-		noDef  bool
-		latest *flag.Flag
-	)
-	for i := 1; i < len(fs); i++ {
-		f0 := fs[i-1]
-		f1 := fs[i-0]
-		c := Combine(f0, f1)
-		*f0 = *c
-		*f1 = *c
-
-		latest = c
-		if c.DefValue == "" {
-			noDef = true
+// CombineSets combines given sets into a third one.
+// Every collided flags are combined into third one in a way that setting value
+// to it sets value of both original flags.
+func CombineSets(fs0, fs1 *flag.FlagSet) *flag.FlagSet {
+	// TODO: join Name().
+	super := flag.NewFlagSet("", flag.ContinueOnError)
+	fs0.VisitAll(func(f0 *flag.Flag) {
+		var v flag.Value
+		f1 := fs1.Lookup(f0.Name)
+		if f1 != nil {
+			// Same flag exists in fs1 flag set.
+			f0 = CombineFlags(f0, f1)
 		}
-	}
-	for i := 0; i < len(fs); i++ {
-		fs[i].Usage = latest.Usage
-		fs[i].Value = latest.Value
-		if noDef {
-			fs[i].DefValue = ""
+		v = OverrideSet(f0.Value, func(value string) (err error) {
+			err = fs0.Set(f0.Name, value)
+			if err != nil {
+				return
+			}
+			if f1 == nil {
+				return
+			}
+			err = fs1.Set(f1.Name, value)
+			if err != nil {
+				return
+			}
+			return nil
+		})
+		super.Var(v, f0.Name, f0.Usage)
+	})
+	fs1.VisitAll(func(f1 *flag.Flag) {
+		if super.Lookup(f1.Name) != nil {
+			// Already combined.
+			return
 		}
-	}
+		v := OverrideSet(f1.Value, func(value string) error {
+			return fs1.Set(f1.Name, value)
+		})
+		super.Var(v, f1.Name, f1.Usage)
+	})
+	return super
 }
 
-// Combine combines given flags into a third one.
-// Setting value of returned flag will cause both given flags change their
-// values as well.
+// CombineFlags combines given flags into a third one. Setting value of
+// returned flag will cause both given flags change their values as well.
+// However, flag sets of both flags will not be aware that the flags were set.
 //
 // Description of each flag (if differ) is joined by MergeUsage().
-func Combine(f0, f1 *flag.Flag) *flag.Flag {
+func CombineFlags(f0, f1 *flag.Flag) *flag.Flag {
 	if f0.Name != f1.Name {
 		panic(fmt.Sprintf(
 			"flagutil: can't combine flags with different names: %q vs %q",
@@ -501,11 +512,8 @@ func Combine(f0, f1 *flag.Flag) *flag.Flag {
 		Value: valuePair{f0.Value, f1.Value},
 		Usage: mergeUsage(f0.Name, f0.Usage, f1.Usage),
 	}
-	// Clear default values to be printed in usage to empty string since
-	// they are different.
-	if f0.DefValue == f1.DefValue {
-		r.DefValue = f0.DefValue
-	}
+	// This is how flag.FlagSet() does it in its Var() method.
+	r.DefValue = r.Value.String()
 	return &r
 }
 
@@ -520,55 +528,4 @@ func mergeUsage(name, s0, s1 string) string {
 	default:
 		return MergeUsage(name, s0, s1)
 	}
-}
-
-type valuePair [2]flag.Value
-
-func (p valuePair) Set(val string) error {
-	for _, v := range p {
-		if err := v.Set(val); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p valuePair) Get() interface{} {
-	var (
-		v0 interface{}
-		v1 interface{}
-	)
-	if g0, ok := p[0].(flag.Getter); ok {
-		v0 = g0.Get()
-	}
-	if g1, ok := p[1].(flag.Getter); ok {
-		v1 = g1.Get()
-	}
-	if !reflect.DeepEqual(v0, v1) {
-		return nil
-	}
-	return v0
-}
-
-func (p valuePair) String() string {
-	if p.isZero() {
-		return ""
-	}
-	s0 := p[0].String()
-	s1 := p[1].String()
-	if s0 != s1 {
-		return ""
-	}
-	return s0
-}
-
-func (p valuePair) IsBoolFlag() bool {
-	if isBoolValue(p[0]) && isBoolValue(p[1]) {
-		return true
-	}
-	return false
-}
-
-func (p valuePair) isZero() bool {
-	return p == valuePair{}
 }
