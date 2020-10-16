@@ -15,6 +15,21 @@ import (
 	"github.com/gobwas/flagutil/parse"
 )
 
+func TestSetActual(t *testing.T) {
+	fs := flag.NewFlagSet(t.Name(), flag.PanicOnError)
+	fs.String("flag", "default", "usage")
+
+	f := fs.Lookup("flag")
+	f.Value = OverrideSet(f.Value, func(string) error {
+		t.Fatalf("unexpected value change")
+		return nil
+	})
+
+	mustNotBeActual(t, fs, "flag")
+	SetActual(fs, "flag")
+	mustBeActual(t, fs, "flag")
+}
+
 type fullParser struct {
 	Parser
 	Printer
@@ -160,7 +175,7 @@ func ExampleMerge() {
 	)
 	// Now we need to setup same flag (probably from some different place).
 	// Setting it up again in a superset will cause error.
-	Merge(fs, func(sub *flag.FlagSet) {
+	MergeInto(fs, func(sub *flag.FlagSet) {
 		// Notice that default value of this flag is different.
 		// However, it will be discarded in favour of default value from superset.
 		sub.StringVar(&s1,
@@ -197,7 +212,7 @@ func ExampleMerge_different_types() {
 		"foo", "42",
 		"some flag usage here",
 	)
-	Merge(fs, func(sub *flag.FlagSet) {
+	MergeInto(fs, func(sub *flag.FlagSet) {
 		sub.IntVar(&i,
 			"foo", 84,
 			"another flag usage here",
@@ -222,10 +237,10 @@ func TestMerge(t *testing.T) {
 		"foo", "bar",
 		"superset usage",
 	)
-	Merge(fs, func(fs *flag.FlagSet) {
+	MergeInto(fs, func(fs *flag.FlagSet) {
 		fs.StringVar(&s1, "foo", "baz", "subset1 usage")
 	})
-	Merge(fs, func(fs *flag.FlagSet) {
+	MergeInto(fs, func(fs *flag.FlagSet) {
 		fs.StringVar(&s2, "foo", "baq", "subset2 usage")
 	})
 	if s0 == s1 || s1 == s2 {
@@ -321,6 +336,27 @@ func mustBeDefined(t *testing.T, fs *flag.FlagSet, name string) {
 	if fs.Lookup(name) == nil {
 		t.Fatalf("want flag %q to be present in set", name)
 	}
+}
+
+func mustBeActual(t *testing.T, fs *flag.FlagSet, name string) {
+	if !isActual(fs, name) {
+		t.Fatalf("want flag %q to be actual in set", name)
+	}
+}
+
+func mustNotBeActual(t *testing.T, fs *flag.FlagSet, name string) {
+	if isActual(fs, name) {
+		t.Fatalf("want flag %q to not be actual in set", name)
+	}
+}
+
+func isActual(fs *flag.FlagSet, name string) (actual bool) {
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			actual = true
+		}
+	})
+	return
 }
 
 func TestCombineFlags(t *testing.T) {

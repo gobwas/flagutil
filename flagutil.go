@@ -517,6 +517,32 @@ func CombineFlags(f0, f1 *flag.Flag) *flag.Flag {
 	return &r
 }
 
+// SetActual makes flag look like it has been set within flag set.
+// If flag set doesn't has flag with given SetActual() does nothing.
+// Original value of found flag remains untouched, so it is safe to use with
+// flags that accumulate values of multiple Set() calls.
+func SetActual(fs *flag.FlagSet, name string) {
+	f := fs.Lookup(name)
+	if f == nil {
+		return
+	}
+	orig := f.Value
+	defer func() {
+		f.Value = orig
+	}()
+	var didSet bool
+	f.Value = value{
+		doSet: func(s string) error {
+			didSet = s == "dummy"
+			return nil
+		},
+	}
+	fs.Set(name, "dummy")
+	if !didSet {
+		panic("flagutil: make specified didn't work well")
+	}
+}
+
 func mergeUsage(name, s0, s1 string) string {
 	switch {
 	case s0 == "":
