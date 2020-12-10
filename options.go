@@ -28,8 +28,8 @@ func (fn ParseOptionFunc) setupParseConfig(c *config) { fn(c) }
 
 type ParserOptionFunc func(*config, *parser)
 
-func (fn ParserOptionFunc) setupParserConfig(p *parser) { fn(nil, p) }
 func (fn ParserOptionFunc) setupParseConfig(c *config)  { fn(c, nil) }
+func (fn ParserOptionFunc) setupParserConfig(p *parser) { fn(nil, p) }
 
 func stashFunc(check func(*flag.Flag) bool) (opt ParserOptionFunc) {
 	return ParserOptionFunc(func(c *config, p *parser) {
@@ -79,9 +79,14 @@ func WithParser(p Parser, opts ...ParserOption) ParseOptionFunc {
 }
 
 // WithIgnoreUndefined makes Parse() to not fail on setting undefined flag.
-func WithIgnoreUndefined() ParseOptionFunc {
-	return ParseOptionFunc(func(c *config) {
-		c.ignoreUndefined = true
+func WithIgnoreUndefined() ParserOptionFunc {
+	return ParserOptionFunc(func(c *config, p *parser) {
+		switch {
+		case c != nil:
+			c.ignoreUndefined = true
+		case p != nil:
+			p.ignoreUndefined = true
+		}
 	})
 }
 

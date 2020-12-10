@@ -37,7 +37,8 @@ func (fn PrinterFunc) Name(ctx context.Context, fs parse.FlagSet) (func(*flag.Fl
 
 type parser struct {
 	Parser
-	stash func(*flag.Flag) bool
+	stash           func(*flag.Flag) bool
+	ignoreUndefined bool
 }
 
 type config struct {
@@ -72,6 +73,10 @@ func Parse(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) (err e
 	for _, p := range c.parsers {
 		parse.NextLevel(fs)
 		parse.Stash(fs, p.stash)
+		if p.ignoreUndefined {
+			// User may ask to ignore undefined per parser as well.
+			parse.IgnoreUndefined(fs)
+		}
 
 		if err = p.Parse(ctx, fs); err != nil {
 			if err == flag.ErrHelp {

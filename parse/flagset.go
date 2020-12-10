@@ -39,6 +39,11 @@ func Stash(fs FlagSet, fn func(*flag.Flag) bool) {
 	fset.stash = fn
 }
 
+func IgnoreUndefined(fs FlagSet) {
+	fset := fs.(*flagSet)
+	fset.ignoreUndefined = true
+}
+
 type flagSet struct {
 	dest            *flag.FlagSet
 	ignoreUndefined bool
