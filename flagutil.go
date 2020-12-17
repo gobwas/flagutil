@@ -37,14 +37,14 @@ func (fn PrinterFunc) Name(ctx context.Context, fs parse.FlagSet) (func(*flag.Fl
 
 type parser struct {
 	Parser
-	stash           func(*flag.Flag) bool
-	ignoreUndefined bool
+	stash               func(*flag.Flag) bool
+	ignoreUndefined     bool
+	allowResetSpecified bool
 }
 
 type config struct {
 	parsers          []*parser
 	parserOptions    []ParserOption
-	ignoreUndefined  bool
 	customUsage      bool
 	unquoteUsageMode UnquoteUsageMode
 }
@@ -67,16 +67,12 @@ func buildConfig(opts []ParseOption) config {
 func Parse(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) (err error) {
 	c := buildConfig(opts)
 
-	fs := parse.NewFlagSet(flags,
-		parse.WithIgnoreUndefined(c.ignoreUndefined),
-	)
+	fs := parse.NewFlagSet(flags)
 	for _, p := range c.parsers {
 		parse.NextLevel(fs)
 		parse.Stash(fs, p.stash)
-		if p.ignoreUndefined {
-			// User may ask to ignore undefined per parser as well.
-			parse.IgnoreUndefined(fs)
-		}
+		parse.IgnoreUndefined(fs, p.ignoreUndefined)
+		parse.AllowResetSpecified(fs, p.allowResetSpecified)
 
 		if err = p.Parse(ctx, fs); err != nil {
 			if err == flag.ErrHelp {

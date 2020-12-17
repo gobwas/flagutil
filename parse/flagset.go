@@ -39,22 +39,28 @@ func Stash(fs FlagSet, fn func(*flag.Flag) bool) {
 	fset.stash = fn
 }
 
-func IgnoreUndefined(fs FlagSet) {
+func IgnoreUndefined(fs FlagSet, ignore bool) {
 	fset := fs.(*flagSet)
-	fset.ignoreUndefined = true
+	fset.ignoreUndefined = ignore
+}
+
+func AllowResetSpecified(fs FlagSet, allow bool) {
+	fset := fs.(*flagSet)
+	fset.allowResetSpecified = allow
 }
 
 type flagSet struct {
-	dest            *flag.FlagSet
-	ignoreUndefined bool
-	provided        map[string]bool
-	stash           func(*flag.Flag) bool
+	dest                *flag.FlagSet
+	ignoreUndefined     bool
+	allowResetSpecified bool
+	specified           map[string]bool
+	stash               func(*flag.Flag) bool
 }
 
 func NewFlagSet(flags *flag.FlagSet, opts ...FlagSetOption) FlagSet {
 	fs := &flagSet{
-		dest:     flags,
-		provided: make(map[string]bool),
+		dest:      flags,
+		specified: make(map[string]bool),
 	}
 	for _, opt := range opts {
 		opt(fs)
@@ -64,7 +70,7 @@ func NewFlagSet(flags *flag.FlagSet, opts ...FlagSetOption) FlagSet {
 }
 
 func (fs *flagSet) Set(name, value string) error {
-	if fs.provided[name] {
+	if fs.specified[name] && !fs.allowResetSpecified {
 		return nil
 	}
 	f := fs.dest.Lookup(name)
@@ -92,13 +98,13 @@ func (fs *flagSet) stashed(f *flag.Flag) bool {
 
 func (fs *flagSet) update() {
 	fs.dest.Visit(func(f *flag.Flag) {
-		fs.provided[f.Name] = true
+		fs.specified[f.Name] = true
 	})
 }
 
 func (fs *flagSet) VisitUnspecified(fn func(*flag.Flag)) {
 	fs.dest.VisitAll(func(f *flag.Flag) {
-		if !fs.provided[f.Name] && !fs.stashed(f) {
+		if !fs.specified[f.Name] && !fs.stashed(f) {
 			fn(fs.clone(f))
 		}
 	})

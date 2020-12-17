@@ -26,13 +26,17 @@ type ParseOptionFunc func(*config)
 
 func (fn ParseOptionFunc) setupParseConfig(c *config) { fn(c) }
 
-type ParserOptionFunc func(*config, *parser)
+type ParserOptionFunc func(*parser)
 
-func (fn ParserOptionFunc) setupParseConfig(c *config)  { fn(c, nil) }
-func (fn ParserOptionFunc) setupParserConfig(p *parser) { fn(nil, p) }
+func (fn ParserOptionFunc) setupParserConfig(p *parser) { fn(p) }
 
-func stashFunc(check func(*flag.Flag) bool) (opt ParserOptionFunc) {
-	return ParserOptionFunc(func(c *config, p *parser) {
+type ParseOrParserOptionFunc func(*config, *parser)
+
+func (fn ParseOrParserOptionFunc) setupParseConfig(c *config)  { fn(c, nil) }
+func (fn ParseOrParserOptionFunc) setupParserConfig(p *parser) { fn(nil, p) }
+
+func stashFunc(check func(*flag.Flag) bool) (opt ParseOrParserOptionFunc) {
+	return ParseOrParserOptionFunc(func(c *config, p *parser) {
 		if c != nil {
 			c.parserOptions = append(c.parserOptions, opt)
 			return
@@ -47,21 +51,27 @@ func stashFunc(check func(*flag.Flag) bool) (opt ParserOptionFunc) {
 	})
 }
 
-func WithStashName(name string) ParserOptionFunc {
+func WithStashName(name string) ParseOrParserOptionFunc {
 	return stashFunc(func(f *flag.Flag) bool {
 		return f.Name == name
 	})
 }
 
-func WithStashPrefix(prefix string) ParserOptionFunc {
+func WithStashPrefix(prefix string) ParseOrParserOptionFunc {
 	return stashFunc(func(f *flag.Flag) bool {
 		return strings.HasPrefix(f.Name, prefix)
 	})
 }
 
-func WithStashRegexp(re *regexp.Regexp) ParserOptionFunc {
+func WithStashRegexp(re *regexp.Regexp) ParseOrParserOptionFunc {
 	return stashFunc(func(f *flag.Flag) bool {
 		return re.MatchString(f.Name)
+	})
+}
+
+func WithResetSpecified() ParserOptionFunc {
+	return ParserOptionFunc(func(p *parser) {
+		p.allowResetSpecified = true
 	})
 }
 
@@ -79,13 +89,24 @@ func WithParser(p Parser, opts ...ParserOption) ParseOptionFunc {
 }
 
 // WithIgnoreUndefined makes Parse() to not fail on setting undefined flag.
-func WithIgnoreUndefined() ParserOptionFunc {
-	return ParserOptionFunc(func(c *config, p *parser) {
+func WithIgnoreUndefined() (opt ParseOrParserOptionFunc) {
+	return ParseOrParserOptionFunc(func(c *config, p *parser) {
 		switch {
 		case c != nil:
-			c.ignoreUndefined = true
+			c.parserOptions = append(c.parserOptions, opt)
 		case p != nil:
 			p.ignoreUndefined = true
+		}
+	})
+}
+
+func WithAllowResetSpecified() (opt ParseOrParserOptionFunc) {
+	return ParseOrParserOptionFunc(func(c *config, p *parser) {
+		switch {
+		case c != nil:
+			c.parserOptions = append(c.parserOptions, opt)
+		case p != nil:
+			p.allowResetSpecified = true
 		}
 	})
 }
