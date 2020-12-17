@@ -454,6 +454,14 @@ func MergeInto(super *flag.FlagSet, setup func(*flag.FlagSet)) {
 	})
 }
 
+// Copy defines all flags from src with dst.
+// It panics on any flag name collision.
+func Copy(dst, src *flag.FlagSet) {
+	src.VisitAll(func(f *flag.Flag) {
+		dst.Var(f.Value, f.Name, f.Usage)
+	})
+}
+
 // CombineSets combines given sets into a third one.
 // Every collided flags are combined into third one in a way that setting value
 // to it sets value of both original flags.
