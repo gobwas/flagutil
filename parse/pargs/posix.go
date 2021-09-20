@@ -23,6 +23,8 @@ type Parser struct {
 	// ShorthandFunc allows user to define custom way of picking shorthand
 	// version of flag with given name.
 	// Shorthand field must be true when setting ShorthandFunc.
+	// Returning empty string means that no shorthand is possible for given
+	// name.
 	ShorthandFunc func(string) string
 
 	pos   int
