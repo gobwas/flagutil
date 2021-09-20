@@ -549,7 +549,71 @@ func SetActual(fs *flag.FlagSet, name string) {
 	}
 	fs.Set(name, "dummy")
 	if !didSet {
-		panic("flagutil: make specified didn't work well")
+		panic("flagutil: set actual didn't work well")
+	}
+}
+
+// LinkFlags links flags named as n0 and n1 in existing flag set fs.
+// If any of the flags doesn't exist LinkFlags() will create one.
+func LinkFlags(fs *flag.FlagSet, n0, n1 string) {
+	var (
+		u0 string
+		u1 string
+		v0 flag.Value
+		v1 flag.Value
+	)
+	f0 := fs.Lookup(n0)
+	if f0 != nil {
+		v0 = f0.Value
+		u0 = f0.Usage
+	}
+	f1 := fs.Lookup(n1)
+	if f1 != nil {
+		v1 = f1.Value
+		u1 = f1.Usage
+	}
+
+	usage := mergeUsage(n0+","+n1, u0, u1)
+
+	v := value{
+		doSet: func(s string) (err error) {
+			if err == nil && v0 != nil {
+				err = v0.Set(s)
+			}
+			if err == nil && v1 != nil {
+				err = v1.Set(s)
+			}
+			return err
+		},
+		doIsBoolFlag: func() bool {
+			if v0 == nil || v1 == nil {
+				// Can't guess in advance.
+				return false
+			}
+			return isBoolValue(v0) && isBoolValue(v1)
+		},
+		doString: func() string {
+			if v0 == nil || v1 == nil {
+				// Can't guess in advance.
+				return ""
+			}
+			s0 := v0.String()
+			s1 := v1.String()
+			if s0 == s1 {
+				return s0
+			}
+			return ""
+		},
+	}
+	if f0 != nil {
+		f0.Value = v
+	} else {
+		fs.Var(v, n0, usage)
+	}
+	if f1 != nil {
+		f1.Value = v
+	} else {
+		fs.Var(v, n1, usage)
 	}
 }
 

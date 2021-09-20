@@ -448,6 +448,46 @@ func TestCombineFlags(t *testing.T) {
 	}
 }
 
+func TestLinkFlags(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		flags [2]flag.Flag
+	}{
+		{
+			name: "basic",
+			flags: [2]flag.Flag{
+				stringFlag("foo", "def#0", "desc#0"),
+				stringFlag("bar", "def#1", "desc#1"),
+			},
+		},
+	} {
+		for i := 0; i < 2; i++ {
+			t.Run(test.name, func(t *testing.T) {
+				fs := flag.NewFlagSet("", flag.PanicOnError)
+				for _, f := range test.flags {
+					fs.Var(f.Value, f.Name, f.Usage)
+				}
+				LinkFlags(fs,
+					test.flags[0].Name,
+					test.flags[1].Name,
+				)
+
+				exp := fmt.Sprintf("%x", rand.Int63())
+				fs.Set(test.flags[i].Name, exp)
+
+				for _, f := range test.flags {
+					if act := f.Value.String(); act != exp {
+						t.Errorf(
+							"unexpected flag %q value: %s; want %s",
+							f.Name, act, exp,
+						)
+					}
+				}
+			})
+		}
+	}
+}
+
 func stringFlag(name, def, desc string) flag.Flag {
 	fs := flag.NewFlagSet("", flag.PanicOnError)
 	fs.String(name, def, desc)
