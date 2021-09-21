@@ -553,68 +553,39 @@ func SetActual(fs *flag.FlagSet, name string) {
 	}
 }
 
-// LinkFlags links flags named as n0 and n1 in existing flag set fs.
-// If any of the flags doesn't exist LinkFlags() will create one.
-func LinkFlags(fs *flag.FlagSet, n0, n1 string) {
+// LinkFlag links dst to be updated when src value is set.
+// It panics if any of the given names doesn't exist in fs.
+//
+// Note that it caches the both src and dst flag.Value pointers internally, so
+// it is possible to link src to dst and dst to src without infinite recursion.
+// However, if any of the src or dst flag value get overwritten after
+// LinkFlag() call, created link will not work properly anymore.
+func LinkFlag(fs *flag.FlagSet, src, dst string) {
+	srcFlag := fs.Lookup(src)
+	if srcFlag == nil {
+		panic(fmt.Sprintf(
+			"flagutil: link flag: source flag %q must exist",
+			src,
+		))
+	}
+	dstFlag := fs.Lookup(dst)
+	if dstFlag == nil {
+		panic(fmt.Sprintf(
+			"flagutil: link flag: destination flag %q must exist",
+			src,
+		))
+	}
 	var (
-		u0 string
-		u1 string
-		v0 flag.Value
-		v1 flag.Value
+		srcValue = srcFlag.Value
+		dstValue = dstFlag.Value
 	)
-	f0 := fs.Lookup(n0)
-	if f0 != nil {
-		v0 = f0.Value
-		u0 = f0.Usage
-	}
-	f1 := fs.Lookup(n1)
-	if f1 != nil {
-		v1 = f1.Value
-		u1 = f1.Usage
-	}
-
-	usage := mergeUsage(n0+","+n1, u0, u1)
-
-	v := value{
-		doSet: func(s string) (err error) {
-			if err == nil && v0 != nil {
-				err = v0.Set(s)
-			}
-			if err == nil && v1 != nil {
-				err = v1.Set(s)
-			}
+	srcFlag.Value = OverrideSet(srcFlag.Value, func(s string) error {
+		err := srcValue.Set(s)
+		if err != nil {
 			return err
-		},
-		doIsBoolFlag: func() bool {
-			if v0 == nil || v1 == nil {
-				// Can't guess in advance.
-				return false
-			}
-			return isBoolValue(v0) && isBoolValue(v1)
-		},
-		doString: func() string {
-			if v0 == nil || v1 == nil {
-				// Can't guess in advance.
-				return ""
-			}
-			s0 := v0.String()
-			s1 := v1.String()
-			if s0 == s1 {
-				return s0
-			}
-			return ""
-		},
-	}
-	if f0 != nil {
-		f0.Value = v
-	} else {
-		fs.Var(v, n0, usage)
-	}
-	if f1 != nil {
-		f1.Value = v
-	} else {
-		fs.Var(v, n1, usage)
-	}
+		}
+		return dstValue.Set(s)
+	})
 }
 
 func mergeUsage(name, s0, s1 string) string {

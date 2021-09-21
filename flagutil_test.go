@@ -101,11 +101,11 @@ func TestUnquoteUsage(t *testing.T) {
 	type expMode map[UnquoteUsageMode][2]string
 	for _, test := range []struct {
 		name  string
-		flag  flag.Flag
+		flag  *flag.Flag
 		modes expMode
 	}{
 		{
-			flag: flag.Flag{
+			flag: &flag.Flag{
 				Usage: "foo `bar` baz",
 			},
 			modes: expMode{
@@ -149,7 +149,7 @@ func TestUnquoteUsage(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			for mode, exp := range test.modes {
 				t.Run(mode.String(), func(t *testing.T) {
-					actName, actUsage := unquoteUsage(mode, &test.flag)
+					actName, actUsage := unquoteUsage(mode, test.flag)
 					if expName := exp[0]; actName != expName {
 						t.Errorf("unexpected name:\n%s", cmp.Diff(expName, actName))
 					}
@@ -362,13 +362,13 @@ func isActual(fs *flag.FlagSet, name string) (actual bool) {
 func TestCombineFlags(t *testing.T) {
 	for _, test := range []struct {
 		name  string
-		flags [2]flag.Flag
-		exp   flag.Flag
+		flags [2]*flag.Flag
+		exp   *flag.Flag
 		panic bool
 	}{
 		{
 			name: "different names",
-			flags: [2]flag.Flag{
+			flags: [2]*flag.Flag{
 				stringFlag("foo", "def", "desc#0"),
 				stringFlag("bar", "def", "desc#1"),
 			},
@@ -376,7 +376,7 @@ func TestCombineFlags(t *testing.T) {
 		},
 		{
 			name: "different default values",
-			flags: [2]flag.Flag{
+			flags: [2]*flag.Flag{
 				stringFlag("foo", "def#0", "desc#0"),
 				stringFlag("foo", "def#1", "desc#1"),
 			},
@@ -384,7 +384,7 @@ func TestCombineFlags(t *testing.T) {
 		},
 		{
 			name: "basic",
-			flags: [2]flag.Flag{
+			flags: [2]*flag.Flag{
 				stringFlag("foo", "def", "desc#0"),
 				stringFlag("foo", "def", "desc#1"),
 			},
@@ -392,7 +392,7 @@ func TestCombineFlags(t *testing.T) {
 		},
 		{
 			name: "basic",
-			flags: [2]flag.Flag{
+			flags: [2]*flag.Flag{
 				stringFlag("foo", "def", "desc#0"),
 				stringFlag("foo", "", "desc#1"),
 			},
@@ -414,7 +414,7 @@ func TestCombineFlags(t *testing.T) {
 					}
 				}()
 				done <- flagOrPanic{
-					flag: CombineFlags(&test.flags[0], &test.flags[1]),
+					flag: CombineFlags(test.flags[0], test.flags[1]),
 				}
 			}()
 			x := <-done
@@ -432,7 +432,7 @@ func TestCombineFlags(t *testing.T) {
 					return v.String()
 				}),
 			}
-			if act, exp := x.flag, &test.exp; !cmp.Equal(act, exp, opts...) {
+			if act, exp := x.flag, test.exp; !cmp.Equal(act, exp, opts...) {
 				t.Errorf("unexpected flag:\n%s", cmp.Diff(exp, act, opts...))
 			}
 			exp := fmt.Sprintf("%x", rand.Int63())
@@ -440,57 +440,65 @@ func TestCombineFlags(t *testing.T) {
 				t.Fatalf("unexpected Set() error: %v", err)
 			}
 			for _, f := range test.flags {
-				if act := f.Value.String(); act != exp {
-					t.Errorf("unexpected flag value: %s; want %s", act, exp)
-				}
+				assertEquals(t, f, exp)
 			}
 		})
 	}
 }
 
-func TestLinkFlags(t *testing.T) {
+func TestLinkFlag(t *testing.T) {
 	for _, test := range []struct {
 		name  string
-		flags [2]flag.Flag
+		flags [2]*flag.Flag
+		links [2]string
 	}{
 		{
 			name: "basic",
-			flags: [2]flag.Flag{
+			flags: [2]*flag.Flag{
 				stringFlag("foo", "def#0", "desc#0"),
 				stringFlag("bar", "def#1", "desc#1"),
 			},
+			links: [2]string{"foo", "bar"},
 		},
 	} {
-		for i := 0; i < 2; i++ {
-			t.Run(test.name, func(t *testing.T) {
-				fs := flag.NewFlagSet("", flag.PanicOnError)
-				for _, f := range test.flags {
+		t.Run(test.name, func(t *testing.T) {
+			fs := flag.NewFlagSet("", flag.PanicOnError)
+			for _, f := range test.flags {
+				if f != nil {
 					fs.Var(f.Value, f.Name, f.Usage)
 				}
-				LinkFlags(fs,
-					test.flags[0].Name,
-					test.flags[1].Name,
-				)
+			}
+			LinkFlag(fs, test.links[0], test.links[1])
 
-				exp := fmt.Sprintf("%x", rand.Int63())
-				fs.Set(test.flags[i].Name, exp)
-
-				for _, f := range test.flags {
-					if act := f.Value.String(); act != exp {
-						t.Errorf(
-							"unexpected flag %q value: %s; want %s",
-							f.Name, act, exp,
-						)
-					}
+			// First, test that setting for src flag affects dst flag.
+			exp := fmt.Sprintf("%x", rand.Int63())
+			fs.Set(test.links[0], exp)
+			for _, n := range test.links {
+				if f := fs.Lookup(n); f != nil {
+					assertEquals(t, f, exp)
 				}
-			})
-		}
+			}
+			// Second, test that setting dst flag doesn't affect src flag.
+			nonExp := fmt.Sprintf("%x", rand.Int63())
+			fs.Set(test.flags[1].Name, nonExp)
+			assertEquals(t, test.flags[0], exp)    // Still the same.
+			assertEquals(t, test.flags[1], nonExp) // Updated.
+		})
 	}
 }
 
-func stringFlag(name, def, desc string) flag.Flag {
+func assertEquals(t *testing.T, f *flag.Flag, exp string) {
+	if act := f.Value.String(); act != exp {
+		t.Errorf(
+			"unexpected flag %q value: %s; want %s",
+			f.Name, act, exp,
+		)
+	}
+}
+
+func stringFlag(name, def, desc string) *flag.Flag {
 	fs := flag.NewFlagSet("", flag.PanicOnError)
 	fs.String(name, def, desc)
 	f := fs.Lookup(name)
-	return *f
+	return f
 }
