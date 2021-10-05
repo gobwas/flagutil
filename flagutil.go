@@ -572,7 +572,7 @@ func LinkFlag(fs *flag.FlagSet, src, dst string) {
 	if dstFlag == nil {
 		panic(fmt.Sprintf(
 			"flagutil: link flag: destination flag %q must exist",
-			src,
+			dst,
 		))
 	}
 	var (
