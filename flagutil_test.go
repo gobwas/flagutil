@@ -162,7 +162,7 @@ func TestUnquoteUsage(t *testing.T) {
 	}
 }
 
-func ExampleMerge() {
+func ExampleMergeInto() {
 	fs := flag.NewFlagSet("superset", flag.PanicOnError)
 	var (
 		s0 string
@@ -202,7 +202,7 @@ func ExampleMerge() {
 	// some flag usage here / another flag usage here
 }
 
-func ExampleMerge_different_types() {
+func ExampleMergeInto_different_types() {
 	fs := flag.NewFlagSet("superset", flag.PanicOnError)
 	var (
 		s string
