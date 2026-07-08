@@ -33,6 +33,11 @@ func Setup(x interface{}, v Visitor) error {
 }
 
 func setup(v Visitor, key string, value interface{}) error {
+	if value == nil {
+		// A nil value means nothing configured for the key; skip it so the
+		// flag keeps its default.
+		return nil
+	}
 	var (
 		typ = reflect.TypeOf(value)
 		val = reflect.ValueOf(value)

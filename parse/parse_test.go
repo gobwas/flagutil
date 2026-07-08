@@ -83,6 +83,18 @@ func TestSetup(t *testing.T) {
 			},
 			err: true,
 		},
+		{
+			name: "nil value skipped",
+			input: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": nil,
+					"baz": "set",
+				},
+			},
+			pairs: [][2]string{
+				{"foo.baz", "set"},
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var act [][2]string
