@@ -420,10 +420,6 @@ func isBoolValue(v flag.Value) bool {
 	return ok && x.IsBoolFlag()
 }
 
-type joinVar struct {
-	flags []*flag.Flag
-}
-
 // MergeUsage specifies way of joining two different flag usage strings.
 var MergeUsage = func(name string, usage0, usage1 string) string {
 	return usage0 + " / " + usage1
