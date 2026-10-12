@@ -155,7 +155,7 @@ func (p *Parser) next() bool {
 		return false
 	}
 	s := p.Args[p.pos]
-	if len(s) < 2 || s[0] != '-' {
+	if !isOption(s) {
 		return false
 	}
 	p.mult = false
@@ -174,7 +174,7 @@ func (p *Parser) next() bool {
 	name, value, hasValue := split(s, '=')
 	if !hasValue && p.pos < len(p.Args) {
 		value = p.Args[p.pos]
-		if len(value) == 0 || value[0] != '-' {
+		if !isOption(value) {
 			if p.isBoolFlag(name) {
 				dash := "--"
 				if short {
@@ -259,6 +259,12 @@ func (p *Parser) shorthands(fs parse.FlagSet) map[string]string {
 
 func (p *Parser) fail(f string, args ...interface{}) {
 	p.err = fmt.Errorf("pargs: %s", fmt.Sprintf(f, args...))
+}
+
+// isOption reports whether s looks like an option: a dash followed by at
+// least one character. A lone "-" is an operand, as POSIX defines it.
+func isOption(s string) bool {
+	return len(s) >= 2 && s[0] == '-'
 }
 
 func split(s string, sep byte) (a, b string, ok bool) {

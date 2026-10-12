@@ -190,6 +190,57 @@ func TestPosixParse(t *testing.T) {
 		},
 
 		{
+			name: "dash as long parameter value",
+			args: []string{
+				"--file", "-",
+			},
+			flags: map[string]bool{
+				"file": false,
+			},
+			expPairs: [][2]string{
+				{"file", "-"},
+			},
+		},
+		{
+			name: "dash as short parameter value",
+			args: []string{
+				"-f", "-",
+			},
+			flags: map[string]bool{
+				"f": false,
+			},
+			expPairs: [][2]string{
+				{"f", "-"},
+			},
+		},
+		{
+			name: "dash as ambiguous boolean value",
+			args: []string{
+				"--foo", "-",
+			},
+			flags: map[string]bool{
+				"foo": true,
+			},
+			err: true,
+		},
+		{
+			name: "dash as non-flag argument",
+			args: []string{
+				"--param", "value",
+				"-", "arg1",
+			},
+			flags: map[string]bool{
+				"param": false,
+			},
+			expPairs: [][2]string{
+				{"param", "value"},
+			},
+			expArgs: []string{
+				"-", "arg1",
+			},
+		},
+
+		{
 			name: "non-flag arguments basic",
 			args: []string{
 				"-a",
