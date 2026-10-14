@@ -89,7 +89,7 @@ func TestPosixParse(t *testing.T) {
 			},
 		},
 		{
-			name: "short ambiguous booleans",
+			name: "short boolean takes no argument",
 			args: []string{
 				"-t", "true",
 				"-f", "false",
@@ -98,7 +98,158 @@ func TestPosixParse(t *testing.T) {
 				"t": true,
 				"f": true,
 			},
+			expPairs: [][2]string{
+				{"t", "true"},
+			},
+			expArgs: []string{
+				"true", "-f", "false",
+			},
+		},
+		{
+			name: "short cluster before operand",
+			args: []string{
+				"-ab", "arg",
+				"-c",
+			},
+			flags: map[string]bool{
+				"a": true,
+				"b": true,
+				"c": true,
+			},
+			expPairs: [][2]string{
+				{"a", "true"},
+				{"b", "true"},
+			},
+			expArgs: []string{
+				"arg", "-c",
+			},
+		},
+		{
+			name: "short with attached argument before operand",
+			args: []string{
+				"-efoo", "arg",
+			},
+			flags: map[string]bool{
+				"e": false,
+			},
+			expPairs: [][2]string{
+				{"e", "foo"},
+			},
+			expArgs: []string{
+				"arg",
+			},
+		},
+		{
+			name: "mixed cluster with argument in next word",
+			args: []string{
+				"-ao", "report.txt",
+				"arg",
+			},
+			flags: map[string]bool{
+				"a": true,
+				"o": false,
+			},
+			expPairs: [][2]string{
+				{"a", "true"},
+				{"o", "report.txt"},
+			},
+			expArgs: []string{
+				"arg",
+			},
+		},
+		{
+			name: "mixed cluster with attached argument",
+			args: []string{
+				"-abofoo", "arg",
+			},
+			flags: map[string]bool{
+				"a": true,
+				"b": true,
+				"o": false,
+			},
+			expPairs: [][2]string{
+				{"a", "true"},
+				{"b", "true"},
+				{"o", "foo"},
+			},
+			expArgs: []string{
+				"arg",
+			},
+		},
+		{
+			name: "mixed cluster without argument",
+			args: []string{
+				"-ao",
+			},
+			flags: map[string]bool{
+				"a": true,
+				"o": false,
+			},
 			err: true,
+		},
+		{
+			name: "dash in cluster is not a terminator",
+			args: []string{
+				"-a-", "--foo", "report.txt",
+			},
+			flags: map[string]bool{
+				"a":   true,
+				"foo": false,
+			},
+			err: true,
+		},
+		{
+			name: "dash in cluster is not a long option",
+			args: []string{
+				"-a-foo",
+			},
+			flags: map[string]bool{
+				"a":   true,
+				"foo": true,
+			},
+			err: true,
+		},
+		{
+			name: "mixed cluster argument is the rest",
+			args: []string{
+				"-aob",
+			},
+			flags: map[string]bool{
+				"a": true,
+				"o": false,
+				"b": true,
+			},
+			expPairs: [][2]string{
+				{"a", "true"},
+				{"o", "b"},
+			},
+		},
+		{
+			name: "mixed cluster before option",
+			args: []string{
+				"-ao", "-b",
+			},
+			flags: map[string]bool{
+				"a": true,
+				"o": false,
+				"b": true,
+			},
+			err: true,
+		},
+		{
+			name: "boolean before dash-dash",
+			args: []string{
+				"--foo", "--", "file",
+			},
+			flags: map[string]bool{
+				"foo": true,
+			},
+			expPairs: [][2]string{
+				{"foo", "true"},
+			},
+			expArgs: []string{
+				"file",
+			},
 		},
 		{
 			name: "long booleans",
@@ -128,14 +279,19 @@ func TestPosixParse(t *testing.T) {
 			},
 		},
 		{
-			name: "empty boolean",
+			name: "empty operand after boolean",
 			args: []string{
 				"--foo", "",
 			},
 			flags: map[string]bool{
 				"foo": true,
 			},
-			err: true,
+			expPairs: [][2]string{
+				{"foo", "true"},
+			},
+			expArgs: []string{
+				"",
+			},
 		},
 		{
 			name: "last bool parameter",
@@ -153,7 +309,7 @@ func TestPosixParse(t *testing.T) {
 			},
 		},
 		{
-			name: "long ambiguous booleans",
+			name: "long boolean takes no argument",
 			args: []string{
 				"--foo", "true",
 				"--bar", "false",
@@ -162,7 +318,12 @@ func TestPosixParse(t *testing.T) {
 				"foo": true,
 				"bar": true,
 			},
-			err: true,
+			expPairs: [][2]string{
+				{"foo", "true"},
+			},
+			expArgs: []string{
+				"true", "--bar", "false",
+			},
 		},
 		{
 			name: "non-boolean without argument",
@@ -214,14 +375,19 @@ func TestPosixParse(t *testing.T) {
 			},
 		},
 		{
-			name: "dash as ambiguous boolean value",
+			name: "dash as operand after boolean",
 			args: []string{
 				"--foo", "-",
 			},
 			flags: map[string]bool{
 				"foo": true,
 			},
-			err: true,
+			expPairs: [][2]string{
+				{"foo", "true"},
+			},
+			expArgs: []string{
+				"-",
+			},
 		},
 		{
 			name: "dash as non-flag argument",
@@ -291,6 +457,21 @@ func TestPosixParse(t *testing.T) {
 			},
 			expPairs: [][2]string{
 				{"shorthand", "foo"},
+			},
+		},
+		{
+			name:      "shorthand mixed cluster",
+			shorthand: true,
+			flags: map[string]bool{
+				"include": true,
+				"lease":   false,
+			},
+			args: []string{
+				"-il", "lease.json",
+			},
+			expPairs: [][2]string{
+				{"include", "true"},
+				{"lease", "lease.json"},
 			},
 		},
 		{

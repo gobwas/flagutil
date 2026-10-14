@@ -32,6 +32,7 @@ type Parser struct {
 	mult  bool
 	name  string
 	value string
+	rest  string // The tail of a cluster ("-ofoo" of "-aofoo").
 	fs    parse.FlagSet
 	alias map[string]string
 }
@@ -123,6 +124,7 @@ func (p *Parser) reset(fs parse.FlagSet) {
 	p.mult = false
 	p.name = ""
 	p.value = ""
+	p.rest = ""
 	p.fs = fs
 	if p.Shorthand {
 		p.alias = p.shorthands(fs)
@@ -151,15 +153,19 @@ func (p *Parser) next() bool {
 	if p.err != nil {
 		return false
 	}
-	if p.pos >= len(p.Args) {
-		return false
-	}
-	s := p.Args[p.pos]
-	if !isOption(s) {
-		return false
+	s := p.rest
+	p.rest = ""
+	if s == "" {
+		if p.pos >= len(p.Args) {
+			return false
+		}
+		s = p.Args[p.pos]
+		if !isOption(s) {
+			return false
+		}
+		p.pos++
 	}
 	p.mult = false
-	p.pos++
 	var short bool
 	if s[1] == '-' {
 		if len(s) == 2 {
@@ -172,22 +178,20 @@ func (p *Parser) next() bool {
 		s = s[1:]
 	}
 	name, value, hasValue := split(s, '=')
-	if !hasValue && p.pos < len(p.Args) {
+	// Only an option that requires an argument takes the next word.
+	//
+	// POSIX knows two kinds of option: with an option-argument and without.
+	// A flag whose IsBoolFlag() is true is an option without an
+	// option-argument, so "--flag value" is "--flag" and the operand "value".
+	// The "--flag=value" form for it is not POSIX but the GNU long-option
+	// convention, where getopt_long() takes an optional argument only inside
+	// the same word.
+	//
+	// A short cluster ("-abc", "-ofoo") holds its own argument, if any.
+	cluster := short && len(name) > 1
+	if !hasValue && !cluster && !p.isBoolFlag(name) && p.pos < len(p.Args) {
 		value = p.Args[p.pos]
 		if !isOption(value) {
-			if p.isBoolFlag(name) {
-				dash := "--"
-				if short {
-					dash = "-"
-				}
-				p.fail(""+
-					"ambiguous boolean flag %[1]s%[2]s value: can't guess whether "+
-					"the %[3]q is the flag value or the non-flag argument "+
-					"(consider using `%[1]s%[2]s=%[3]s` or `%[1]s%[2]s -- %[3]s`)",
-					dash, name, value,
-				)
-				return false
-			}
 			hasValue = true
 			p.pos++
 		}
@@ -205,7 +209,18 @@ func (p *Parser) next() bool {
 				}
 				value = name[1:]
 				name = name[:1]
-			} else {
+			} else { // -abc, or -aofoo as -a -ofoo
+				for i := range name {
+					if !p.isBoolFlag(name[i : i+1]) {
+						if !isValidName(name[i:i+1], true) {
+							p.fail("invalid option name: %q", name[i:i+1])
+							return false
+						}
+						p.rest = "-" + name[i:]
+						name = name[:i]
+						break
+					}
+				}
 				p.mult = true
 				value = "true"
 			}
