@@ -47,7 +47,7 @@ Custom usage currently looks like this:
 Usage of test:
   $TEST_FOO, --foo
         bool
-        bool flag description (default false)
+        bool flag description
 
   $TEST_BAR, --bar
         int

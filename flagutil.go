@@ -221,45 +221,30 @@ func printDefaults(ctx context.Context, c *config, flags *flag.FlagSet) (err err
 	return nil
 }
 
+// defValue returns the default to print for f: its DefValue, quoted for a
+// string, or nothing when that is the zero value of the flag's type, as the
+// standard library's PrintDefaults does ("" for a string, false for a bool,
+// 0 for a number).
 func defValue(f *flag.Flag) string {
-	var x interface{}
-	g, ok := f.Value.(flag.Getter)
-	if ok {
-		x = g.Get()
-	}
-	if def := f.DefValue; def != "" {
-		if _, ok := x.(string); ok {
-			def = `"` + def + `"`
-		}
-		return def
-	}
-	v := reflect.ValueOf(x)
-repeat:
-	if !v.IsValid() {
+	def := f.DefValue
+	if def == "" {
 		return ""
 	}
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-		goto repeat
+	if zero, err := isZeroValue(f, def); err == nil && zero {
+		return ""
 	}
-	switch v.Kind() {
-	case reflect.String:
-		return `""`
-	case
-		reflect.Slice,
-		reflect.Array:
-		return `[]`
-	case
-		reflect.Struct,
-		reflect.Map:
-		return `{}`
+	if g, ok := f.Value.(flag.Getter); ok {
+		if _, ok := g.Get().(string); ok {
+			def = `"` + def + `"`
+		}
 	}
-	return ""
+	return def
 }
 
-// defValueStd returns default value as it does std lib.
-// NOTE: this one is unused.
-func defValueStd(f *flag.Flag) string {
+// isZeroValue reports whether value is what the zero value of f's Value type
+// prints, as the standard library decides it. A String method that panics on
+// the zero value is reported as an error, not a zero.
+func isZeroValue(f *flag.Flag, value string) (zero bool, err error) {
 	t := reflect.TypeOf(f.Value)
 	var z reflect.Value
 	if t.Kind() == reflect.Ptr {
@@ -267,11 +252,15 @@ func defValueStd(f *flag.Flag) string {
 	} else {
 		z = reflect.Zero(t)
 	}
-	zero := z.Interface().(flag.Value).String()
-	if v := f.DefValue; v != zero {
-		return v
-	}
-	return ""
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf(
+				"flagutil: String() of zero %v panics for flag %q: %v",
+				t, f.Name, e,
+			)
+		}
+	}()
+	return value == z.Interface().(flag.Value).String(), nil
 }
 
 // unquoteUsage is the same as flag.UnquoteUsage() with exception that it does

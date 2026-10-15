@@ -86,11 +86,11 @@ func TestPrintUsage(t *testing.T) {
 	exp := "" +
 		"  $BAR, -b, -bar\n" +
 		"    \tbool\n" +
-		"    \tdescription here (default false)\n" +
+		"    \tdescription here\n" +
 		"\n" +
 		"  $FOO\n" + // -foo is ignored.
 		"    \tcustom\n" +
-		"    \tcustom description here (default \"\")\n" +
+		"    \tcustom description here\n" +
 		"\n"
 	if act := buf.String(); act != exp {
 		t.Error(cmp.Diff(exp, act))
