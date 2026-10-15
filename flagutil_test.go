@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -36,19 +37,7 @@ type fullParser struct {
 }
 
 func TestPrintUsage(t *testing.T) {
-	var buf bytes.Buffer
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	fs.SetOutput(&buf)
-	var (
-		foo string
-		bar bool
-		baz int
-	)
-	fs.StringVar(&foo, "foo", "", "`custom` description here")
-	fs.BoolVar(&bar, "bar", bar, "description here")
-	fs.IntVar(&baz, "baz", baz, "description here")
-
-	PrintDefaults(context.Background(), fs,
+	parserOptions := []ParseOption{
 		WithParser(
 			&fullParser{
 				Parser: nil,
@@ -82,19 +71,152 @@ func TestPrintUsage(t *testing.T) {
 			}),
 		}),
 		WithStashRegexp(regexp.MustCompile(".*baz.*")),
-	)
-	exp := "" +
-		"  $BAR, -b, -bar\n" +
-		"    \tbool\n" +
-		"    \tdescription here\n" +
-		"\n" +
-		"  $FOO\n" + // -foo is ignored.
-		"    \tcustom\n" +
-		"    \tcustom description here\n" +
-		"\n"
-	if act := buf.String(); act != exp {
-		t.Error(cmp.Diff(exp, act))
 	}
+	for _, test := range []struct {
+		name  string
+		setup func(*flag.FlagSet)
+		args  []string
+		opts  []ParseOption
+		exp   string
+	}{
+		{
+			name: "parsers",
+			setup: func(fs *flag.FlagSet) {
+				fs.String("foo", "", "`custom` description here")
+				fs.Bool("bar", false, "description here")
+				fs.Int("baz", 0, "description here")
+			},
+			opts: parserOptions,
+			exp: "" +
+				"  $BAR, -b, -bar\n" +
+				"    \tbool\n" +
+				"    \tdescription here\n" +
+				"\n" +
+				"  $FOO\n" + // -foo is ignored.
+				"    \tcustom\n" +
+				"    \tcustom description here\n" +
+				"\n",
+		},
+		{
+			name:  "bool/zero",
+			setup: func(fs *flag.FlagSet) { fs.Bool("flag", false, "description") },
+			exp:   "  flag\n    \tbool\n    \tdescription\n\n",
+		},
+		{
+			name:  "bool/nonzero",
+			setup: func(fs *flag.FlagSet) { fs.Bool("flag", true, "description") },
+			exp:   "  flag\n    \tbool\n    \tdescription (default true)\n\n",
+		},
+		{
+			name:  "string/zero",
+			setup: func(fs *flag.FlagSet) { fs.String("flag", "", "description") },
+			exp:   "  flag\n    \tstring\n    \tdescription\n\n",
+		},
+		{
+			name:  "string/nonzero",
+			setup: func(fs *flag.FlagSet) { fs.String("flag", "hello", "description") },
+			exp:   "  flag\n    \tstring\n    \tdescription (default \"hello\")\n\n",
+		},
+		{
+			name:  "int/zero",
+			setup: func(fs *flag.FlagSet) { fs.Int("flag", 0, "description") },
+			exp:   "  flag\n    \tint\n    \tdescription\n\n",
+		},
+		{
+			name:  "int/nonzero",
+			setup: func(fs *flag.FlagSet) { fs.Int("flag", 42, "description") },
+			exp:   "  flag\n    \tint\n    \tdescription (default 42)\n\n",
+		},
+		{
+			name:  "uint/zero",
+			setup: func(fs *flag.FlagSet) { fs.Uint("flag", 0, "description") },
+			exp:   "  flag\n    \tuint\n    \tdescription\n\n",
+		},
+		{
+			name:  "uint/nonzero",
+			setup: func(fs *flag.FlagSet) { fs.Uint("flag", 42, "description") },
+			exp:   "  flag\n    \tuint\n    \tdescription (default 42)\n\n",
+		},
+		{
+			name:  "float/zero",
+			setup: func(fs *flag.FlagSet) { fs.Float64("flag", 0, "description") },
+			exp:   "  flag\n    \tfloat\n    \tdescription\n\n",
+		},
+		{
+			name:  "float/nonzero",
+			setup: func(fs *flag.FlagSet) { fs.Float64("flag", 1.5, "description") },
+			exp:   "  flag\n    \tfloat\n    \tdescription (default 1.5)\n\n",
+		},
+		{
+			name:  "duration/zero",
+			setup: func(fs *flag.FlagSet) { fs.Duration("flag", 0, "description") },
+			exp:   "  flag\n    \tduration\n    \tdescription\n\n",
+		},
+		{
+			name:  "duration/nonzero",
+			setup: func(fs *flag.FlagSet) { fs.Duration("flag", time.Second, "description") },
+			exp:   "  flag\n    \tduration\n    \tdescription (default 1s)\n\n",
+		},
+		{
+			name:  "parsed/zero_default",
+			setup: func(fs *flag.FlagSet) { fs.Int("flag", 0, "description") },
+			args:  []string{"-flag=42"},
+			exp:   "  flag\n    \tint\n    \tdescription\n\n",
+		},
+		{
+			name:  "parsed/nonzero_default",
+			setup: func(fs *flag.FlagSet) { fs.Int("flag", 42, "description") },
+			args:  []string{"-flag=0"},
+			exp:   "  flag\n    \tint\n    \tdescription (default 42)\n\n",
+		},
+		{
+			name: "custom/nonpointer",
+			setup: func(fs *flag.FlagSet) {
+				fs.Var(value{doString: func() string { return "custom" }}, "flag", "description")
+			},
+			exp: "  flag\n    \tdescription (default custom)\n\n",
+		},
+		{
+			name: "custom/panic_on_zero",
+			setup: func(fs *flag.FlagSet) {
+				s := "custom"
+				fs.Var(&zeroPanicValue{&s}, "flag", "description")
+				fs.String("next", "hello", "next flag")
+			},
+			exp: "  flag\n    \tdescription (default custom)\n\n" +
+				"  next\n    \tstring\n    \tnext flag (default \"hello\")\n\n",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			fs := flag.NewFlagSet(t.Name(), flag.ContinueOnError)
+			fs.SetOutput(&buf)
+			test.setup(fs)
+			if err := fs.Parse(test.args); err != nil {
+				t.Fatal(err)
+			}
+			if err := PrintDefaults(context.Background(), fs, test.opts...); err != nil {
+				t.Fatal(err)
+			}
+			if act := buf.String(); act != test.exp {
+				t.Error(cmp.Diff(test.exp, act))
+			}
+		})
+	}
+}
+
+// zeroPanicValue requires initialization before String can be called.
+type zeroPanicValue struct {
+	value *string
+}
+
+func (v *zeroPanicValue) String() string {
+	return *v.value
+}
+
+func (v *zeroPanicValue) Set(s string) error {
+	*v.value = s
+	return nil
 }
 
 func TestUnquoteUsage(t *testing.T) {
