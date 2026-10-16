@@ -15,12 +15,13 @@ var _ flagutil.Printer = new(Parser)
 
 func TestFlagsParseArgs(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		flags    map[string]bool
-		args     []string
-		expPairs [][2]string
-		expArgs  []string
-		err      bool
+		name            string
+		flags           map[string]bool
+		args            []string
+		expPairs        [][2]string
+		expArgs         []string
+		err             bool
+		ignoreUndefined bool
 	}{
 		{
 			name: "basic",
@@ -107,7 +108,7 @@ func TestFlagsParseArgs(t *testing.T) {
 			},
 		},
 		{
-			name: "basic error",
+			name: "single-dash-without-argument",
 			flags: map[string]bool{
 				"param": false,
 			},
@@ -117,7 +118,7 @@ func TestFlagsParseArgs(t *testing.T) {
 			err: true,
 		},
 		{
-			name: "basic error",
+			name: "double-dash-without-argument",
 			flags: map[string]bool{
 				"param": false,
 			},
@@ -126,10 +127,54 @@ func TestFlagsParseArgs(t *testing.T) {
 			},
 			err: true,
 		},
+		{
+			name: "non-existing-single-dash",
+			args: []string{"-www"},
+			err:  true,
+		},
+		{
+			name: "non-existing-double-dash",
+			args: []string{"--www"},
+			err:  true,
+		},
+		{
+			name: "non-existing-with-value",
+			args: []string{"--www=value"},
+			err:  true,
+		},
+		{
+			name:  "non-existing-before-option",
+			args:  []string{"--www", "--foo"},
+			flags: map[string]bool{"foo": true},
+			err:   true,
+		},
+		{
+			name:            "ignore-non-existing-without-argument",
+			args:            []string{"--www", "-w"},
+			ignoreUndefined: true,
+		},
+		{
+			name:            "ignore-non-existing-before-option",
+			args:            []string{"--www", "--foo"},
+			flags:           map[string]bool{"foo": true},
+			ignoreUndefined: true,
+			expPairs:        [][2]string{{"foo", "true"}},
+		},
+		{
+			name: "help-without-argument",
+			args: []string{"--help"},
+			err:  true,
+		},
+		{
+			name:  "defined-help-without-argument",
+			args:  []string{"--help"},
+			flags: map[string]bool{"help": false},
+			err:   true,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fs := testutil.StubFlagSet{
-				IgnoreUndefined: true,
+				IgnoreUndefined: test.ignoreUndefined,
 			}
 			for name, isBool := range test.flags {
 				if isBool {

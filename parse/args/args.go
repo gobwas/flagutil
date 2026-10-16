@@ -101,7 +101,8 @@ func (p *Parser) next() bool {
 		value = "true"
 		hasValue = true
 	}
-	if !hasValue {
+	// Let Set handle undefined flags, including the ignore-undefined policy.
+	if !hasValue && p.fs.Lookup(name) != nil {
 		p.fail("flag needs an argument: -%s", name)
 		return false
 	}
