@@ -203,7 +203,8 @@ func (p *Parser) next() bool {
 		}
 		if !hasValue { // [-o, -abc] or [-ofoo]
 			if !p.isBoolFlag(name[:1]) { // -ofoo
-				if len(name) == 1 {
+				// Let Set handle undefined options, including the ignore-undefined policy.
+				if len(name) == 1 && p.fs.Lookup(p.resolve(name)) != nil {
 					p.fail("argument is required for option %q", name)
 					return false
 				}
@@ -227,11 +228,12 @@ func (p *Parser) next() bool {
 		}
 	} else {
 		if !hasValue {
-			if !p.isBoolFlag(name) {
+			if p.isBoolFlag(name) {
+				value = "true"
+			} else if p.fs.Lookup(p.resolve(name)) != nil {
 				p.fail("argument is required for option %q", name)
 				return false
 			}
-			value = "true"
 		}
 	}
 	if !isValidName(name, short) {

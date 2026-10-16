@@ -15,13 +15,14 @@ var _ flagutil.Printer = new(Parser)
 
 func TestPosixParse(t *testing.T) {
 	for _, test := range []struct {
-		name      string
-		args      []string
-		expPairs  [][2]string
-		expArgs   []string
-		err       bool
-		flags     map[string]bool
-		shorthand bool
+		name            string
+		args            []string
+		expPairs        [][2]string
+		expArgs         []string
+		err             bool
+		flags           map[string]bool
+		shorthand       bool
+		ignoreUndefined bool
 	}{
 		{
 			name: "short basic",
@@ -530,9 +531,64 @@ func TestPosixParse(t *testing.T) {
 			args:  []string{"--www"},
 			err:   true,
 		},
+		{
+			name: "non-existing-long-with-value",
+			args: []string{"--www=value"},
+			err:  true,
+		},
+		{
+			name:  "non-existing-long-before-option",
+			args:  []string{"--www", "--foo"},
+			flags: map[string]bool{"foo": true},
+			err:   true,
+		},
+		{
+			name:  "non-existing-short-before-option",
+			args:  []string{"-w", "--foo"},
+			flags: map[string]bool{"foo": true},
+			err:   true,
+		},
+		{
+			name:  "non-existing-in-cluster",
+			args:  []string{"-aw"},
+			flags: map[string]bool{"a": true},
+			err:   true,
+		},
+		{
+			name:      "shorthand-without-argument",
+			args:      []string{"-o"},
+			flags:     map[string]bool{"output": false},
+			shorthand: true,
+			err:       true,
+		},
+		{
+			name:            "ignore-non-existing-without-argument",
+			args:            []string{"--www", "-w"},
+			ignoreUndefined: true,
+		},
+		{
+			name:            "ignore-non-existing-before-option",
+			args:            []string{"--www", "-aw", "--foo"},
+			flags:           map[string]bool{"a": true, "foo": true},
+			ignoreUndefined: true,
+			expPairs:        [][2]string{{"a", "true"}, {"foo", "true"}},
+		},
+		{
+			name: "help-without-argument",
+			args: []string{"--help"},
+			err:  true,
+		},
+		{
+			name:  "defined-help-without-argument",
+			args:  []string{"--help"},
+			flags: map[string]bool{"help": false},
+			err:   true,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			var fs testutil.StubFlagSet
+			fs := testutil.StubFlagSet{
+				IgnoreUndefined: test.ignoreUndefined,
+			}
 			for name, isBool := range test.flags {
 				if isBool {
 					fs.AddBoolFlag(name, false)
