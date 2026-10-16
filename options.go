@@ -120,6 +120,20 @@ func WithCustomUsage() ParseOptionFunc {
 	})
 }
 
+// WithUsageOrder sets the comparison function used to order flags in help.
+// The function receives registered flag names, without dashes or parser
+// aliases.
+//
+// compare() returning a negative value places n0 before n1, positive value
+// places n0 after n1, zero orders the names alphabetically.
+//
+// It applies to PrintDefaults and to Parse when using WithCustomUsage.
+func WithUsageOrder(compare func(n0, n1 string) int) ParseOptionFunc {
+	return ParseOptionFunc(func(c *config) {
+		c.usageOrder = compare
+	})
+}
+
 func WithUnquoteUsageMode(m UnquoteUsageMode) ParseOptionFunc {
 	return ParseOptionFunc(func(c *config) {
 		c.unquoteUsageMode = m

@@ -37,6 +37,16 @@ type fullParser struct {
 }
 
 func TestPrintUsage(t *testing.T) {
+	setupFlags := func(fs *flag.FlagSet) {
+		fs.String("foo", "", "`custom` description here")
+		fs.Bool("bar", false, "description here")
+		fs.Int("baz", 0, "description here")
+	}
+	setupOrderFlags := func(fs *flag.FlagSet) {
+		for _, name := range []string{"gamma", "beta", "alpha"} {
+			fs.Bool(name, false, "description")
+		}
+	}
 	parserOptions := []ParseOption{
 		WithParser(
 			&fullParser{
@@ -80,13 +90,9 @@ func TestPrintUsage(t *testing.T) {
 		exp   string
 	}{
 		{
-			name: "parsers",
-			setup: func(fs *flag.FlagSet) {
-				fs.String("foo", "", "`custom` description here")
-				fs.Bool("bar", false, "description here")
-				fs.Int("baz", 0, "description here")
-			},
-			opts: parserOptions,
+			name:  "parsers",
+			setup: setupFlags,
+			opts:  parserOptions,
 			exp: "" +
 				"  $BAR, -b, -bar\n" +
 				"    \tbool\n" +
@@ -96,6 +102,61 @@ func TestPrintUsage(t *testing.T) {
 				"    \tcustom\n" +
 				"    \tcustom description here\n" +
 				"\n",
+		},
+		{
+			name:  "order/alphabetical",
+			setup: setupOrderFlags,
+			exp: "  alpha\n    \tbool\n    \tdescription\n\n" +
+				"  beta\n    \tbool\n    \tdescription\n\n" +
+				"  gamma\n    \tbool\n    \tdescription\n\n",
+		},
+		{
+			name:  "order/nil",
+			setup: setupOrderFlags,
+			opts:  []ParseOption{WithUsageOrder(nil)},
+			exp: "  alpha\n    \tbool\n    \tdescription\n\n" +
+				"  beta\n    \tbool\n    \tdescription\n\n" +
+				"  gamma\n    \tbool\n    \tdescription\n\n",
+		},
+		{
+			name:  "order/ties",
+			setup: setupOrderFlags,
+			opts:  []ParseOption{WithUsageOrder(func(string, string) int { return 0 })},
+			exp: "  alpha\n    \tbool\n    \tdescription\n\n" +
+				"  beta\n    \tbool\n    \tdescription\n\n" +
+				"  gamma\n    \tbool\n    \tdescription\n\n",
+		},
+		{
+			name:  "order/reverse",
+			setup: setupOrderFlags,
+			opts: []ParseOption{WithUsageOrder(func(n0, n1 string) int {
+				return strings.Compare(n1, n0)
+			})},
+			exp: "  gamma\n    \tbool\n    \tdescription\n\n" +
+				"  beta\n    \tbool\n    \tdescription\n\n" +
+				"  alpha\n    \tbool\n    \tdescription\n\n",
+		},
+		{
+			name:  "order/length_then_alphabetical",
+			setup: setupOrderFlags,
+			opts: []ParseOption{WithUsageOrder(func(n0, n1 string) int {
+				return len(n0) - len(n1)
+			})},
+			exp: "  beta\n    \tbool\n    \tdescription\n\n" +
+				"  alpha\n    \tbool\n    \tdescription\n\n" +
+				"  gamma\n    \tbool\n    \tdescription\n\n",
+		},
+		{
+			name:  "order/parsers_and_stash",
+			setup: setupFlags,
+			opts: []ParseOption{
+				WithParseOptions(parserOptions...),
+				WithUsageOrder(func(n0, n1 string) int {
+					return strings.Compare(n1, n0)
+				}),
+			},
+			exp: "  $FOO\n    \tcustom\n    \tcustom description here\n\n" +
+				"  $BAR, -b, -bar\n    \tbool\n    \tdescription here\n\n",
 		},
 		{
 			name:  "bool/zero",

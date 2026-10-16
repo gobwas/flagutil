@@ -2,12 +2,14 @@ package flagutil
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -48,6 +50,7 @@ type config struct {
 	parserOptions    []ParserOption
 	customUsage      bool
 	unquoteUsageMode UnquoteUsageMode
+	usageOrder       func(string, string) int
 }
 
 func buildConfig(opts []ParseOption) config {
@@ -149,8 +152,8 @@ func (m UnquoteUsageMode) has(x UnquoteUsageMode) bool {
 	return m&x != 0
 }
 
-func printDefaults(ctx context.Context, c *config, flags *flag.FlagSet) (err error) {
-	fs := parse.NewFlagSet(flags)
+func printDefaults(ctx context.Context, c *config, flagSet *flag.FlagSet) (err error) {
+	fs := parse.NewFlagSet(flagSet)
 
 	var hasNameFunc bool
 	nameFunc := make([]func(*flag.Flag, func(string)), len(c.parsers))
@@ -165,7 +168,7 @@ func printDefaults(ctx context.Context, c *config, flags *flag.FlagSet) (err err
 	}
 
 	var buf bytes.Buffer
-	flags.VisitAll(func(f *flag.Flag) {
+	print := func(f *flag.Flag) {
 		n, _ := buf.WriteString("  ")
 		for i := len(c.parsers) - 1; i >= 0; i-- {
 			fn := nameFunc[i]
@@ -215,8 +218,25 @@ func printDefaults(ctx context.Context, c *config, flags *flag.FlagSet) (err err
 
 		buf.WriteByte('\n')
 		buf.WriteByte('\n')
-		buf.WriteTo(flags.Output())
+		buf.WriteTo(flagSet.Output())
+	}
+
+	var flags []*flag.Flag
+	flagSet.VisitAll(func(f *flag.Flag) {
+		flags = append(flags, f)
 	})
+	if compare := c.usageOrder; compare != nil {
+		slices.SortFunc(flags, func(f0, f1 *flag.Flag) int {
+			n0, n1 := f0.Name, f1.Name
+			return cmp.Or(
+				compare(n0, n1),
+				strings.Compare(n0, n1),
+			)
+		})
+	}
+	for _, f := range flags {
+		print(f)
+	}
 
 	return nil
 }

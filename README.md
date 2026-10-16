@@ -41,6 +41,8 @@ It is possible to print custom help message which may include, for example,
 names of the environment variables used by env parser. See the
 `WithCustomUsage()` parse option.
 
+Use `WithUsageOrder(compare)` to customize flag order in help.
+
 Custom usage currently looks like this:
 
 ```
