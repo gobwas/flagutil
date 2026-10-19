@@ -13,19 +13,13 @@ import (
 	"github.com/gobwas/flagutil/parse"
 )
 
+// Parser reads the arguments in the POSIX syntax. A one-letter name is a
+// short option, "-s", and a longer one a long option, "--settings".
+//
+// Which names a flag has is the flag set's business, as flagutil.WithNameFunc
+// decides it, and Shorthands gives the first-letter convention.
 type Parser struct {
 	Args []string
-
-	// Shorthand specifies whether parser should try to provide shorthand
-	// version (e.g. just first letter of name) of each top level flag.
-	Shorthand bool
-
-	// ShorthandFunc allows user to define custom way of picking shorthand
-	// version of flag with given name.
-	// Shorthand field must be true when setting ShorthandFunc.
-	// Returning empty string means that no shorthand is possible for given
-	// name.
-	ShorthandFunc func(string) string
 
 	pos   int
 	err   error
@@ -34,7 +28,37 @@ type Parser struct {
 	value string
 	rest  string // The tail of a cluster ("-ofoo" of "-aofoo").
 	fs    parse.FlagSet
-	alias map[string]string
+}
+
+// Shorthands returns a name function, for [flagutil.WithNameFunc], that gives
+// every top level flag of fs its first letter as a shorthand beside its name:
+// "-s" for "settings", unless another flag starts with the same letter or a
+// flag is named by it, in which case the flag keeps its name alone.
+func Shorthands(fs *flag.FlagSet) func(name string) []string {
+	short := make(map[string]string)
+	fs.VisitAll(func(f *flag.Flag) {
+		if !isTopSet(f) || len(f.Name) < 2 {
+			return
+		}
+		s := f.Name[:1]
+		if _, has := short[s]; has {
+			// Mark this shorthand as ambiguous.
+			short[s] = ""
+		} else {
+			short[s] = f.Name
+		}
+	})
+	for s, n := range short {
+		if n == "" || fs.Lookup(s) != nil {
+			delete(short, s)
+		}
+	}
+	return func(name string) []string {
+		if name != "" && short[name[:1]] == name {
+			return []string{name[:1], name}
+		}
+		return []string{name}
+	}
 }
 
 func (p *Parser) Parse(_ context.Context, fs parse.FlagSet) (err error) {
@@ -42,8 +66,6 @@ func (p *Parser) Parse(_ context.Context, fs parse.FlagSet) (err error) {
 
 	for p.next() {
 		p.pairs(func(name, value string) bool {
-			name = p.resolve(name)
-
 			_, isHelp := lookup(fs, name)
 			if isHelp {
 				err = flag.ErrHelp
@@ -68,22 +90,10 @@ func (p *Parser) NonOptionArgs() []string {
 	return nil
 }
 
-func (p *Parser) resolve(name string) string {
-	if s, has := p.alias[name]; has {
-		name = s
-	}
-	return name
-}
-
+// Name implements flagutil.Printer: a one-letter name prints with one dash, a
+// longer one with two.
 func (p *Parser) Name(_ context.Context, fs parse.FlagSet) (func(*flag.Flag, func(string)), error) {
-	short := p.shorthands(fs)
 	return func(f *flag.Flag, it func(string)) {
-		if p.Shorthand {
-			s := p.shorthand(f)
-			if _, has := short[s]; has {
-				it("-" + s)
-			}
-		}
 		var prefix string
 		if len(f.Name) == 1 {
 			prefix = "-"
@@ -92,17 +102,6 @@ func (p *Parser) Name(_ context.Context, fs parse.FlagSet) (func(*flag.Flag, fun
 		}
 		it(prefix + f.Name)
 	}, nil
-}
-
-func (p *Parser) shorthand(f *flag.Flag) string {
-	if fn := p.ShorthandFunc; fn != nil {
-		return fn(f.Name)
-	}
-	if !isTopSet(f) {
-		// Not a topmost flag set.
-		return ""
-	}
-	return string(f.Name[0])
 }
 
 func (p *Parser) pairs(fn func(name, value string) bool) {
@@ -126,9 +125,6 @@ func (p *Parser) reset(fs parse.FlagSet) {
 	p.value = ""
 	p.rest = ""
 	p.fs = fs
-	if p.Shorthand {
-		p.alias = p.shorthands(fs)
-	}
 }
 
 func lookup(fs parse.FlagSet, name string) (f *flag.Flag, isHelp bool) {
@@ -138,7 +134,6 @@ func lookup(fs parse.FlagSet, name string) (f *flag.Flag, isHelp bool) {
 }
 
 func (p *Parser) isBoolFlag(name string) bool {
-	name = p.resolve(name)
 	f, isHelp := lookup(p.fs, name)
 	if isHelp {
 		return true
@@ -204,7 +199,7 @@ func (p *Parser) next() bool {
 		if !hasValue { // [-o, -abc] or [-ofoo]
 			if !p.isBoolFlag(name[:1]) { // -ofoo
 				// Let Set handle undefined options, including the ignore-undefined policy.
-				if len(name) == 1 && p.fs.Lookup(p.resolve(name)) != nil {
+				if len(name) == 1 && p.fs.Lookup(name) != nil {
 					p.fail("argument is required for option %q", name)
 					return false
 				}
@@ -230,7 +225,7 @@ func (p *Parser) next() bool {
 		if !hasValue {
 			if p.isBoolFlag(name) {
 				value = "true"
-			} else if p.fs.Lookup(p.resolve(name)) != nil {
+			} else if p.fs.Lookup(name) != nil {
 				p.fail("argument is required for option %q", name)
 				return false
 			}
@@ -245,33 +240,6 @@ func (p *Parser) next() bool {
 	p.value = value
 
 	return true
-}
-
-func (p *Parser) shorthands(fs parse.FlagSet) map[string]string {
-	short := make(map[string]string)
-	// Need to provide all shorthand aliases to not fail on meeting some
-	// shorthand version of already provided flag.
-	fs.VisitAll(func(f *flag.Flag) {
-		s := p.shorthand(f)
-		if s == "" {
-			return
-		}
-		if _, has := short[s]; has {
-			// Mark this shorthand name as ambiguous.
-			short[s] = ""
-		} else {
-			short[s] = f.Name
-		}
-	})
-	for s, n := range short {
-		if n == "" {
-			delete(short, s)
-		}
-		if fs.Lookup(s) != nil {
-			delete(short, s)
-		}
-	}
-	return short
 }
 
 func (p *Parser) fail(f string, args ...interface{}) {

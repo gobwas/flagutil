@@ -19,8 +19,8 @@ import (
 var SetSeparator = "."
 
 // ParseError is a flag a parser could not set, as Parse returns it wrapped:
-// errors.AsType finds it, with the flag's name, the value, and either that
-// the flag is undefined or the flag's own error.
+// errors.AsType finds it, with the name the parser used, the value, and
+// either that no flag is known by that name or the flag's own error.
 type ParseError = parse.Error
 
 type Parser interface {
@@ -45,7 +45,9 @@ func (fn PrinterFunc) Name(ctx context.Context, fs parse.FlagSet) (func(*flag.Fl
 
 type parser struct {
 	Parser
-	stash               func(*flag.Flag) bool
+	// aliases maps a flag's name to the aliases this parser sees it by,
+	// none for a flag it does not see; nil is the identity.
+	aliases             func(name string) []string
 	ignoreUndefined     bool
 	allowResetSpecified bool
 }
@@ -79,7 +81,7 @@ func Parse(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) (err e
 	fs := parse.NewFlagSet(flags)
 	for _, p := range c.parsers {
 		parse.NextLevel(fs)
-		parse.Stash(fs, p.stash)
+		parse.Name(fs, p.aliases)
 		parse.IgnoreUndefined(fs, p.ignoreUndefined)
 		parse.AllowResetSpecified(fs, p.allowResetSpecified)
 
@@ -158,13 +160,14 @@ func (m UnquoteUsageMode) has(x UnquoteUsageMode) bool {
 }
 
 func printDefaults(ctx context.Context, c *config, flagSet *flag.FlagSet) (err error) {
-	fs := parse.NewFlagSet(flagSet)
-
 	var hasNameFunc bool
 	nameFunc := make([]func(*flag.Flag, func(string)), len(c.parsers))
 	for i := len(c.parsers) - 1; i >= 0; i-- {
 		if p, ok := c.parsers[i].Parser.(Printer); ok {
 			hasNameFunc = true
+			// Each printer sees the flags under the names its parser does.
+			fs := parse.NewFlagSet(flagSet)
+			parse.Name(fs, c.parsers[i].aliases)
 			nameFunc[i], err = p.Name(ctx, fs)
 			if err != nil {
 				return
@@ -180,15 +183,23 @@ func printDefaults(ctx context.Context, c *config, flagSet *flag.FlagSet) (err e
 			if fn == nil {
 				continue
 			}
-			if stash := c.parsers[i].stash; stash != nil && stash(f) {
-				continue
+			aliases := []string{f.Name}
+			if fn := c.parsers[i].aliases; fn != nil {
+				aliases = fn(f.Name)
 			}
-			fn(f, func(name string) {
-				if buf.Len() > n {
-					buf.WriteString(", ")
+			for _, alias := range aliases {
+				if alias == "" {
+					continue
 				}
-				buf.WriteString(name)
-			})
+				cp := *f
+				cp.Name = alias
+				fn(&cp, func(name string) {
+					if buf.Len() > n {
+						buf.WriteString(", ")
+					}
+					buf.WriteString(name)
+				})
+			}
 		}
 		if buf.Len() == n {
 			// No name has been given.

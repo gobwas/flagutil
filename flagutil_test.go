@@ -57,20 +57,37 @@ func TestPrintUsage(t *testing.T) {
 					}, nil
 				}),
 			},
-			WithStashPrefix("f"),
-			WithStashName("bar"),
+			WithNameFunc(func(name string) []string {
+				if strings.HasPrefix(name, "f") {
+					return nil
+				}
+				return []string{name}
+			}),
+			WithNameFunc(func(name string) []string {
+				if name == "bar" {
+					return nil
+				}
+				return []string{name}
+			}),
 		),
 		WithParser(
 			&fullParser{
 				Parser: nil,
 				Printer: PrinterFunc(func(_ context.Context, fs parse.FlagSet) (func(*flag.Flag, func(string)), error) {
 					return func(f *flag.Flag, it func(string)) {
-						it("-" + string(f.Name[0]))
 						it("-" + f.Name)
 					}, nil
 				}),
 			},
-			WithStashName("foo"),
+			WithNameFunc(func(name string) []string {
+				switch name {
+				case "foo":
+					return nil
+				case "bar":
+					return []string{"b", name}
+				}
+				return []string{name}
+			}),
 		),
 		WithParser(&fullParser{
 			Parser: nil,
@@ -80,7 +97,12 @@ func TestPrintUsage(t *testing.T) {
 				}, nil
 			}),
 		}),
-		WithStashRegexp(regexp.MustCompile(".*baz.*")),
+		WithNameFunc(func(name string) []string {
+			if regexp.MustCompile(".*baz.*").MatchString(name) {
+				return nil
+			}
+			return []string{name}
+		}),
 	}
 	for _, test := range []struct {
 		name  string
@@ -99,6 +121,40 @@ func TestPrintUsage(t *testing.T) {
 				"    \tdescription here\n" +
 				"\n" +
 				"  $FOO\n" + // -foo is ignored.
+				"    \tcustom\n" +
+				"    \tcustom description here\n" +
+				"\n",
+		},
+		{
+			// One printer, two names for one flag: both print, in order.
+			name:  "aliases",
+			setup: setupFlags,
+			opts: []ParseOption{
+				WithParser(&fullParser{
+					Parser: nil,
+					Printer: PrinterFunc(func(_ context.Context, fs parse.FlagSet) (func(*flag.Flag, func(string)), error) {
+						return func(f *flag.Flag, it func(string)) {
+							it("$" + strings.ToUpper(f.Name))
+						}, nil
+					}),
+				},
+					WithNameFunc(func(name string) []string {
+						switch name {
+						case "foo":
+							return []string{"foo", "legacy-foo"}
+						case "bar":
+							return []string{name}
+						}
+						return nil
+					}),
+				),
+			},
+			exp: "" +
+				"  $BAR\n" +
+				"    \tbool\n" +
+				"    \tdescription here\n" +
+				"\n" +
+				"  $FOO, $LEGACY-FOO\n" +
 				"    \tcustom\n" +
 				"    \tcustom description here\n" +
 				"\n",
@@ -147,7 +203,7 @@ func TestPrintUsage(t *testing.T) {
 				"  gamma\n    \tbool\n    \tdescription\n\n",
 		},
 		{
-			name:  "order/parsers_and_stash",
+			name:  "order/parsers_and_names",
 			setup: setupFlags,
 			opts: []ParseOption{
 				WithParseOptions(parserOptions...),
@@ -261,6 +317,145 @@ func TestPrintUsage(t *testing.T) {
 			}
 			if act := buf.String(); act != test.exp {
 				t.Error(cmp.Diff(test.exp, act))
+			}
+		})
+	}
+}
+
+// TestNameFunc pins what a parser sees through WithNameFunc: a flag under
+// the names returned, no flag for none, and a chain of functions applied
+// in order.
+func TestNameFunc(t *testing.T) {
+	drop := func(name string) func(string) []string {
+		return func(n string) []string {
+			if n == name {
+				return nil
+			}
+			return []string{n}
+		}
+	}
+	rename := func(from string, to ...string) func(string) []string {
+		return func(n string) []string {
+			if n == from {
+				return to
+			}
+			return []string{n}
+		}
+	}
+	for _, test := range []struct {
+		name string
+		opts []ParserOption
+		// sets are the name and value pairs the parser sets, in order.
+		sets [][2]string
+		// expSeen are the names the parser sees through VisitAll.
+		expSeen []string
+		expHost string
+		expErr  string
+	}{
+		{
+			name:    "identity",
+			sets:    [][2]string{{"host", "a"}},
+			expSeen: []string{"host", "port"},
+			expHost: "a",
+		},
+		{
+			name: "rename",
+			opts: []ParserOption{
+				WithNameFunc(rename("host", "api-host")),
+			},
+			sets:    [][2]string{{"api-host", "a"}},
+			expSeen: []string{"api-host", "port"},
+			expHost: "a",
+		},
+		{
+			name: "alias",
+			opts: []ParserOption{
+				WithNameFunc(rename("host", "h", "host")),
+			},
+			sets:    [][2]string{{"h", "a"}},
+			expSeen: []string{"h", "host", "port"},
+			expHost: "a",
+		},
+		{
+			name: "two aliases set take the later",
+			opts: []ParserOption{
+				WithNameFunc(rename("host", "h", "host")),
+			},
+			sets:    [][2]string{{"h", "a"}, {"host", "b"}},
+			expSeen: []string{"h", "host", "port"},
+			expHost: "b",
+		},
+		{
+			name: "own name is undefined once renamed",
+			opts: []ParserOption{
+				WithNameFunc(rename("host", "api-host")),
+			},
+			sets:    [][2]string{{"host", "a"}},
+			expSeen: []string{"api-host", "port"},
+			expErr:  `flagutil: parse error: flag provided but not defined: "host"`,
+		},
+		{
+			name: "drop",
+			opts: []ParserOption{
+				WithNameFunc(drop("host")),
+			},
+			sets:    [][2]string{{"host", "a"}},
+			expSeen: []string{"port"},
+			expErr:  `flagutil: parse error: flag provided but not defined: "host"`,
+		},
+		{
+			name: "chain sees the renamed name",
+			opts: []ParserOption{
+				WithNameFunc(rename("host", "api-host")),
+				WithNameFunc(drop("api-host")),
+			},
+			expSeen: []string{"port"},
+		},
+		{
+			name: "chain before the rename sees the own name",
+			opts: []ParserOption{
+				WithNameFunc(drop("host")),
+				WithNameFunc(rename("host", "api-host")),
+			},
+			expSeen: []string{"port"},
+		},
+		{
+			name: "chain applies to every name",
+			opts: []ParserOption{
+				WithNameFunc(rename("host", "h", "host")),
+				WithNameFunc(drop("h")),
+			},
+			expSeen: []string{"host", "port"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fs := flag.NewFlagSet(t.Name(), flag.ContinueOnError)
+			host := fs.String("host", "", "")
+			fs.Int("port", 0, "")
+			var seen []string
+			p := ParserFunc(func(_ context.Context, fs parse.FlagSet) error {
+				fs.VisitAll(func(f *flag.Flag) {
+					seen = append(seen, f.Name)
+				})
+				for _, set := range test.sets {
+					if err := fs.Set(set[0], set[1]); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			err := Parse(context.Background(), fs, WithParser(p, test.opts...))
+			if act := fmt.Sprint(err); err != nil && act != test.expErr {
+				t.Fatalf("error: %v; want %q", err, test.expErr)
+			}
+			if err == nil && test.expErr != "" {
+				t.Fatalf("error: nil; want %q", test.expErr)
+			}
+			if diff := cmp.Diff(test.expSeen, seen); diff != "" {
+				t.Errorf("seen:\n%s", diff)
+			}
+			if *host != test.expHost {
+				t.Errorf("host: %q; want %q", *host, test.expHost)
 			}
 		})
 	}

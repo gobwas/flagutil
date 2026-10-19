@@ -2,18 +2,19 @@ package parse
 
 import "fmt"
 
-// Error is a flag a parser could not set: the flag by name, the value it
-// was given, and either that no such flag is defined or the flag's own
-// error for the value.
+// Error is a flag a parser could not set: the name the parser used, the
+// value it was given, and either that no flag is known by that name or the
+// flag's own error for the value.
 type Error struct {
-	// Name is the flag's name, without dashes, as the parser read it.
+	// Name is the name the parser used, without dashes: one of the names
+	// the parser sees the flag by, the flag's own or a shorthand among
+	// them.
 	Name string
 
 	// Value is what the parser tried to set the flag to.
 	Value string
 
-	// Undefined reports that no flag of that name is defined; Err is nil
-	// then.
+	// Undefined reports that no flag is known by Name; Err is nil then.
 	Undefined bool
 
 	// Err is the flag's own error for Value.

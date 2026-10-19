@@ -90,7 +90,11 @@ func main() {
 		// it is possible.
 		flagutil.WithParser(&pargs.Parser{
 			Args: os.Args[1:],
-		}),	
+		},
+			// Give every flag its first letter as a shorthand: -p for
+			// --port.
+			flagutil.WithNameFunc(pargs.Shorthands(flags)),
+		),
 
 		// Then lookup flag values among environment.
 		flagutil.WithParser(&env.Parser{
@@ -104,8 +108,16 @@ func main() {
 				Lookup: file.LookupFlag(flags, "config"),
 				Syntax: new(json.Syntax),
 			},
-			// Don't allow to setup "config" flag from file.
-			flagutil.WithStashName("config"),
+			// Don't allow to setup "config" flag from file: a flag given
+			// no name is not this parser's. The names returned are this
+			// parser's alone, so a changed one is a rename and a second
+			// one an alias; several WithNameFunc chain in order.
+			flagutil.WithNameFunc(func(name string) []string {
+				if name == "config" {
+					return nil
+				}
+				return []string{name}
+			}),
 		),
 	)
 

@@ -1,11 +1,5 @@
 package flagutil
 
-import (
-	"flag"
-	"regexp"
-	"strings"
-)
-
 type ParseOption interface {
 	setupParseConfig(*config)
 }
@@ -35,37 +29,40 @@ type ParseOrParserOptionFunc func(*config, *parser)
 func (fn ParseOrParserOptionFunc) setupParseConfig(c *config)  { fn(c, nil) }
 func (fn ParseOrParserOptionFunc) setupParserConfig(p *parser) { fn(nil, p) }
 
-func stashFunc(check func(*flag.Flag) bool) (opt ParseOrParserOptionFunc) {
+// WithNameFunc makes a parser see each flag under the aliases fn returns for
+// the flag's name, and not at all when fn returns none.
+//
+// The flag's own name is an alias only when fn returns it, so fn hides flags,
+// renames them for one parser, gives them more names (a shorthand on the
+// command line, a legacy variable in the environment), or all of these.
+//
+// The parser reads every alias, in order, so a flag set under two of them
+// takes the later, as a repeated flag does, and help prints them in order.
+//
+// Several WithNameFunc chain in option order: each receives, one by one, the
+// aliases the previous one returned, and none aliases end the chain. Options
+// given to WithParser apply before those given to Parse, so a function given
+// to Parse sees the aliases a parser's own functions produced.
+//
+// Two flags fn gives one alias is a programming error and panics in Parse.
+func WithNameFunc(fn func(name string) []string) (opt ParseOrParserOptionFunc) {
 	return ParseOrParserOptionFunc(func(c *config, p *parser) {
 		if c != nil {
 			c.parserOptions = append(c.parserOptions, opt)
 			return
 		}
-		prev := p.stash
-		p.stash = func(f *flag.Flag) bool {
-			if prev != nil && prev(f) {
-				return true
-			}
-			return check(f)
+		prev := p.aliases
+		if prev == nil {
+			p.aliases = fn
+			return
 		}
-	})
-}
-
-func WithStashName(name string) ParseOrParserOptionFunc {
-	return stashFunc(func(f *flag.Flag) bool {
-		return f.Name == name
-	})
-}
-
-func WithStashPrefix(prefix string) ParseOrParserOptionFunc {
-	return stashFunc(func(f *flag.Flag) bool {
-		return strings.HasPrefix(f.Name, prefix)
-	})
-}
-
-func WithStashRegexp(re *regexp.Regexp) ParseOrParserOptionFunc {
-	return stashFunc(func(f *flag.Flag) bool {
-		return re.MatchString(f.Name)
+		p.aliases = func(name string) []string {
+			var aliases []string
+			for _, alias := range prev(name) {
+				aliases = append(aliases, fn(alias)...)
+			}
+			return aliases
+		}
 	})
 }
 

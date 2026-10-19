@@ -10,6 +10,9 @@ func TestError(t *testing.T) {
 	flags := flag.NewFlagSet("test", flag.ContinueOnError)
 	flags.Int("n", 0, "")
 	fs := NewFlagSet(flags)
+	Name(fs, func(name string) []string {
+		return []string{name, "number"}
+	})
 
 	for _, test := range []struct {
 		name      string
@@ -30,6 +33,13 @@ func TestError(t *testing.T) {
 			flag:  "n",
 			value: "nope",
 			msg:   `parse error: set "n": parse error`,
+		},
+		{
+			// The error names the flag as the parser did.
+			name:  "value refused through an alias",
+			flag:  "number",
+			value: "nope",
+			msg:   `parse error: set "number": parse error`,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

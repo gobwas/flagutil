@@ -2,6 +2,7 @@ package pargs
 
 import (
 	"context"
+	"flag"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -21,7 +22,6 @@ func TestPosixParse(t *testing.T) {
 		expArgs         []string
 		err             bool
 		flags           map[string]bool
-		shorthand       bool
 		ignoreUndefined bool
 	}{
 		{
@@ -448,72 +448,6 @@ func TestPosixParse(t *testing.T) {
 		},
 
 		{
-			name:      "shorthand basic",
-			shorthand: true,
-			flags: map[string]bool{
-				"shorthand": false,
-			},
-			args: []string{
-				"-s=foo",
-			},
-			expPairs: [][2]string{
-				{"shorthand", "foo"},
-			},
-		},
-		{
-			name:      "shorthand mixed cluster",
-			shorthand: true,
-			flags: map[string]bool{
-				"include": true,
-				"lease":   false,
-			},
-			args: []string{
-				"-il", "lease.json",
-			},
-			expPairs: [][2]string{
-				{"include", "true"},
-				{"lease", "lease.json"},
-			},
-		},
-		{
-			name:      "shorthand ambiguous",
-			shorthand: true,
-			flags: map[string]bool{
-				"some-foo": false,
-				"some-bar": false,
-			},
-			args: []string{
-				"-s=foo",
-			},
-			err: true,
-		},
-		{
-			name:      "shorthand collision",
-			shorthand: true,
-			flags: map[string]bool{
-				"some-foo": false,
-				"s":        false,
-			},
-			args: []string{
-				"-s=foo",
-			},
-			expPairs: [][2]string{
-				{"s", "foo"},
-			},
-		},
-		{
-			name:      "shorthand only top",
-			shorthand: true,
-			flags: map[string]bool{
-				"some.foo": false,
-			},
-			args: []string{
-				"-s=foo",
-			},
-			err: true,
-		},
-
-		{
 			name:  "non-existing-short-single",
 			flags: map[string]bool{},
 			args:  []string{"-w"},
@@ -555,13 +489,6 @@ func TestPosixParse(t *testing.T) {
 			err:   true,
 		},
 		{
-			name:      "shorthand-without-argument",
-			args:      []string{"-o"},
-			flags:     map[string]bool{"output": false},
-			shorthand: true,
-			err:       true,
-		},
-		{
 			name:            "ignore-non-existing-without-argument",
 			args:            []string{"--www", "-w"},
 			ignoreUndefined: true,
@@ -597,8 +524,7 @@ func TestPosixParse(t *testing.T) {
 				}
 			}
 			p := Parser{
-				Args:      test.args,
-				Shorthand: test.shorthand,
+				Args: test.args,
 			}
 			err := p.Parse(context.Background(), &fs)
 			if !test.err && err != nil {
@@ -621,6 +547,110 @@ func TestPosixParse(t *testing.T) {
 					"unexpected non-flag arguments:\n%s",
 					cmp.Diff(exp, act),
 				)
+			}
+		})
+	}
+}
+
+// TestShorthands runs the parser over a flag set named by Shorthands.
+func TestShorthands(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		// flags maps a name to whether the flag is a bool.
+		flags map[string]bool
+		args  []string
+		exp   map[string]string
+		err   bool
+	}{
+		{
+			name: "basic",
+			flags: map[string]bool{
+				"shorthand": false,
+			},
+			args: []string{"-s=foo"},
+			exp: map[string]string{
+				"shorthand": "foo",
+			},
+		},
+		{
+			name: "mixed cluster",
+			flags: map[string]bool{
+				"include": true,
+				"lease":   false,
+			},
+			args: []string{"-il", "lease.json"},
+			exp: map[string]string{
+				"include": "true",
+				"lease":   "lease.json",
+			},
+		},
+		{
+			name: "ambiguous",
+			flags: map[string]bool{
+				"some-foo": false,
+				"some-bar": false,
+			},
+			args: []string{"-s=foo"},
+			err:  true,
+		},
+		{
+			name: "collision",
+			flags: map[string]bool{
+				"some-foo": false,
+				"s":        false,
+			},
+			args: []string{"-s=foo"},
+			exp: map[string]string{
+				"s": "foo",
+			},
+		},
+		{
+			name: "only top",
+			flags: map[string]bool{
+				"some.foo": false,
+			},
+			args: []string{"-s=foo"},
+			err:  true,
+		},
+		{
+			name: "without argument",
+			flags: map[string]bool{
+				"output": false,
+			},
+			args: []string{"-o"},
+			err:  true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			flags := flag.NewFlagSet(t.Name(), flag.ContinueOnError)
+			for name, isBool := range test.flags {
+				if isBool {
+					flags.Bool(name, false, "")
+				} else {
+					flags.String(name, "", "")
+				}
+			}
+			fs := parse.NewFlagSet(flags)
+			parse.Name(fs, Shorthands(flags))
+			p := Parser{
+				Args: test.args,
+			}
+			err := p.Parse(context.Background(), fs)
+			if !test.err && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if test.err && err == nil {
+				t.Fatalf("want error; got nothing")
+			}
+			if test.err {
+				return
+			}
+			act := make(map[string]string)
+			flags.Visit(func(f *flag.Flag) {
+				act[f.Name] = f.Value.String()
+			})
+			if diff := cmp.Diff(test.exp, act); diff != "" {
+				t.Errorf("values:\n%s", diff)
 			}
 		})
 	}
