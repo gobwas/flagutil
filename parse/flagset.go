@@ -1,9 +1,6 @@
 package parse
 
-import (
-	"flag"
-	"fmt"
-)
+import "flag"
 
 type FlagGetter interface {
 	Lookup(name string) *flag.Flag
@@ -82,13 +79,20 @@ func (fs *flagSet) Set(name, value string) error {
 		return nil
 	}
 	if !defined {
-		return fmt.Errorf("flag provided but not defined: %q", name)
+		return &Error{
+			Name:      name,
+			Value:     value,
+			Undefined: true,
+		}
 	}
-	err := fs.dest.Set(name, value)
-	if err != nil {
-		err = fmt.Errorf("set %q: %w", name, err)
+	if err := fs.dest.Set(name, value); err != nil {
+		return &Error{
+			Name:  name,
+			Value: value,
+			Err:   err,
+		}
 	}
-	return err
+	return nil
 }
 
 func (fs *flagSet) stashed(f *flag.Flag) bool {

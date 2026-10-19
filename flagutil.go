@@ -18,6 +18,11 @@ import (
 
 var SetSeparator = "."
 
+// ParseError is a flag a parser could not set, as Parse returns it wrapped:
+// errors.AsType finds it, with the flag's name, the value, and either that
+// the flag is undefined or the flag's own error.
+type ParseError = parse.Error
+
 type Parser interface {
 	Parse(context.Context, parse.FlagSet) error
 }
@@ -83,7 +88,7 @@ func Parse(ctx context.Context, flags *flag.FlagSet, opts ...ParseOption) (err e
 				_ = printUsageMaybe(ctx, &c, flags)
 			}
 			if err != nil {
-				err = fmt.Errorf("flagutil: parse error: %w", err)
+				err = fmt.Errorf("flagutil: %w", err)
 			}
 			switch flags.ErrorHandling() {
 			case flag.ContinueOnError:
